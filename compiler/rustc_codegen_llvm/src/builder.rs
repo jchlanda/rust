@@ -8,7 +8,7 @@ pub(crate) mod gpu_offload;
 
 use libc::{c_char, c_uint};
 use rustc_abi as abi;
-use rustc_abi::{Align, Size, WrappingRange};
+use rustc_abi::{Align, CanonAbi, Size, WrappingRange};
 use rustc_codegen_ssa::MemFlags;
 use rustc_codegen_ssa::common::{IntPredicate, RealPredicate, SynchronizationScope, TypeKind};
 use rustc_codegen_ssa::mir::operand::{OperandRef, OperandValue};
@@ -427,7 +427,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             bundles.push(kcfi_bundle);
         }
 
-        let pauth = self.ptrauth_operand_bundle(llfn);
+        let pauth = self.ptrauth_operand_bundle(llfn, fn_abi);
         if let Some(p) = pauth.as_ref().map(|b| b.as_ref()) {
             bundles.push(p);
         }
@@ -1393,7 +1393,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             bundles.push(kcfi_bundle);
         }
 
-        let pauth = self.ptrauth_operand_bundle(llfn);
+        let pauth = self.ptrauth_operand_bundle(llfn, fn_abi);
         if let Some(p) = pauth.as_ref().map(|b| b.as_ref()) {
             bundles.push(p);
         }
@@ -1833,7 +1833,7 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
             bundles.push(kcfi_bundle);
         }
 
-        let pauth = self.ptrauth_operand_bundle(llfn);
+        let pauth = self.ptrauth_operand_bundle(llfn, fn_abi);
         if let Some(p) = pauth.as_ref().map(|b| b.as_ref()) {
             bundles.push(p);
         }
@@ -1957,12 +1957,17 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
         kcfi_bundle
     }
 
-    fn ptrauth_operand_bundle(&mut self, llfn: &'ll Value) -> Option<llvm::OperandBundleBox<'ll>> {
-        let pauth_opt = self.sess().opts.unstable_opts.pauth;
-        if !pauth_opt {
+    fn ptrauth_operand_bundle(
+        &mut self,
+        llfn: &'ll Value,
+        fn_abi: Option<&FnAbi<'tcx, Ty<'tcx>>>,
+    ) -> Option<llvm::OperandBundleBox<'ll>> {
+        if !self.sess().opts.unstable_opts.pauth {
             return None;
         }
-
+        if fn_abi?.conv != CanonAbi::C {
+            return None;
+        }
         let is_non_gv_fn_ptr = unsafe { llvm::LLVMRustIsNonGVFunctionPointerTy(llfn) };
         if !is_non_gv_fn_ptr {
             return None;
