@@ -17,19 +17,36 @@ use rustc_middle::ty::TyCtxt;
 use rustc_session::cstore::DllImport;
 use tracing::debug;
 
+use crate::attributes;
 use crate::consts::const_alloc_to_llvm;
 pub(crate) use crate::context::CodegenCx;
 use crate::context::{GenericCx, SCx};
 use crate::llvm::{self, BasicBlock, ConstantInt, FALSE, Metadata, TRUE, ToLlvmBool, Type, Value};
 
+pub(crate) fn apply_ptrauth_fn_attributes<'ll>(llcx: &'ll llvm::Context, llfn: &'ll llvm::Value) {
+    // Add ptrauth-* attributes.
+    let attrs =
+        ["ptrauth-auth-traps", "ptrauth-calls", "ptrauth-indirect-gotos", "ptrauth-returns"];
+
+    for &attr in &attrs {
+        attributes::apply_to_llfn(
+            llfn,
+            llvm::AttributePlace::Function,
+            &[llvm::CreateAttrString(llcx, attr)],
+        );
+    }
+}
+
 pub(crate) fn sign_fn_ptr_if_pauth_opt<'ll>(
     cx: &CodegenCx<'ll, '_>,
+    llcx: &'ll llvm::Context,
     llfn: &'ll llvm::Value,
 ) -> &'ll llvm::Value {
     if !cx.sess().opts.unstable_opts.pauth {
         return llfn;
     }
 
+    apply_ptrauth_fn_attributes(llcx, llfn);
     unsafe {
         // FIXME: JAKUB: constant 0 disc?
         let authed =

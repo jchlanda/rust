@@ -122,6 +122,10 @@ pub(crate) fn compile_codegen_unit(
                 cx.add_objc_module_flags();
             }
 
+            if cx.sess().opts.unstable_opts.pauth && cx.ptrauth_sign_personality.get() {
+                cx.add_ptrauth_sign_personality_flag();
+            }
+
             // Finalize code coverage by injecting the coverage map. Note, the coverage map will
             // also be added to the `llvm.compiler.used` variable, created next.
             if cx.sess().instrument_coverage() {
