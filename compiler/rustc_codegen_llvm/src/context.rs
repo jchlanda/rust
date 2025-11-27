@@ -165,6 +165,9 @@ pub(crate) struct FullCx<'ll, 'tcx> {
 
     /// Cache of kernel-specific globals
     pub offload_kernel_cache: RefCell<FxHashMap<String, OffloadKernelGlobals<'ll>>>,
+
+    /// Wether personality function flag is needed, in ptrauth mode.
+    pub ptrauth_sign_personality: Cell<bool>,
 }
 
 fn to_llvm_tls_model(tls_model: TlsModel) -> llvm::ThreadLocalMode {
@@ -650,6 +653,7 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
                 objc_selrefs: Default::default(),
                 offload_globals: Default::default(),
                 offload_kernel_cache: Default::default(),
+                ptrauth_sign_personality: Cell::new(false),
             },
             PhantomData,
         )
@@ -688,6 +692,15 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
             // (a.k.a the "non-fragile ABI").
             2
         }
+    }
+
+    pub(crate) fn add_ptrauth_sign_personality_flag(&self) {
+        llvm::add_module_flag_u32(
+            self.llmod,
+            llvm::ModuleFlagMergeBehavior::Override,
+            "ptrauth-sign-personality",
+            1,
+        );
     }
 
     // We do our best here to match what Clang does when compiling Objective-C natively.
@@ -842,15 +855,15 @@ impl<'ll, 'tcx> MiscCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
             return llfn;
         }
 
-        // Don't sign personality function pointers.
         if Some(instance.def_id()) == self.tcx().lang_items().eh_personality() {
-            return llfn;
+            self.ptrauth_sign_personality.set(true);
         }
 
+        // FIXME: JAKUB: Should personality functions be signed with address diversity?
         if let DefKind::Fn = self.tcx.def_kind(instance.def_id()) {
             let abi = self.tcx.fn_sig(instance.def_id()).skip_binder().abi();
             if let ExternAbi::C { .. } = abi {
-                return common::sign_fn_ptr_if_pauth_opt(self, llfn);
+                return common::sign_fn_ptr_if_pauth_opt(self, self.llcx(), llfn);
             }
         }
 
