@@ -642,6 +642,11 @@ fn llvm_features_by_flags(sess: &Session, features: &mut Vec<String>) {
             features.push("+reserve-x18".into());
         }
     }
+    // -Z pauth
+    if sess.opts.unstable_opts.pauth {
+        // FIXME: JAKUB: Limit all uses of opts.unstable_opts.pauth to AArch64.
+        features.push("+pauth".into());
+    }
 }
 
 /// The list of LLVM features computed from CLI flags (`-Ctarget-cpu`, `-Ctarget-feature`,
