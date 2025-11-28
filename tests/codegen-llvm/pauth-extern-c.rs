@@ -40,11 +40,16 @@ extern "C" {
     fn add_from_c(a: i32, b: i32) -> i32;
 }
 
-// O0_PAUTH: attributes #[[ATTR_O0_1]] = {{.*ptrauth-calls.*}}
-// O3_PAUTH: attributes #[[ATTR_O3_1]] = {{.*ptrauth-calls.*}}
+// Split each attribute check to two separate comands, so we don't hit rust's 100 line limit
+// O0_PAUTH: attributes #[[ATTR_O0_1]] = { {{.*}}ptrauth-calls
+// O0_PAUTH: {{.*}}"target-features"="{{.*}}+pauth{{.*}}"
+// O3_PAUTH: attributes #[[ATTR_O3_1]] = { {{.*}}ptrauth-calls
+// O3_PAUTH: {{.*}}"target-features"="{{.*}}+pauth{{.*}}"
 
-// O0_PAUTH: attributes #[[ATTR_O0_2]] = {{.*ptrauth-calls.*}}
-// O3_PAUTH: attributes #[[ATTR_O3_2]] = {{.*ptrauth-calls.*}}
+// O0_PAUTH: attributes #[[ATTR_O0_2]] = { {{.*}}ptrauth-calls
+// O0_PAUTH: {{.*}}"target-features"="{{.*}}+pauth{{.*}}"
+// O3_PAUTH: attributes #[[ATTR_O3_2]] = { {{.*}}ptrauth-calls
+// O3_PAUTH: {{.*}}"target-features"="{{.*}}+pauth{{.*}}"
 
 // O0_PAUTH: !{i32 {{[0-9]+}}, !"ptrauth-sign-personality", i32 1}
 // O3_PAUTH: !{i32 {{[0-9]+}}, !"ptrauth-sign-personality", i32 1}
