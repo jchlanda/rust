@@ -13,17 +13,17 @@ type FnPtr = unsafe extern "C" fn(i32, i32) -> i32;
 // O0_PAUTH: personality ptr ptrauth (ptr @rust_eh_personality, i32 0)
 // O3_PAUTH: personality ptr ptrauth (ptr @rust_eh_personality, i32 0)
 
-// O0_PAUTH: define{{.*}} @_ZN14pauth_extern_c4main{{.*}}
-// O3_PAUTH: define{{.*}} @_ZN14pauth_extern_c4main{{.*}}
+// O0_PAUTH: define {{.*}}pauth_extern_c4main
+// O3_PAUTH: define {{.*}}pauth_extern_c4main
 fn main() {
     let add_ptr: FnPtr = add_from_c;
-    // O0_PAUTH: call i32 @_ZN14pauth_extern_c7call_it{{.*}}(ptr ptrauth (ptr @add_from_c, i32 0)
+    // O0_PAUTH: call i32 @{{.*}}pauth_extern_c7call_it{{.*}}(ptr ptrauth (ptr @add_from_c, i32 0)
     let _sum = call_it(add_ptr, 5, 7);
     assert!(12 == _sum);
 }
 
-// O0_PAUTH: define{{.*}}i32 @_ZN14pauth_extern_c7call_it{{.*}} #[[ATTR_O0_1:[0-9]+]]
-// O3_PAUTH: define{{.*}}i32 @_ZN14pauth_extern_c7call_it{{.*}} #[[ATTR_O3_1:[0-9]+]]
+// O0_PAUTH: define {{.*}}pauth_extern_c7call_it{{.*}} #[[ATTR_O0_1:[0-9]+]]
+// O3_PAUTH: define {{.*}}pauth_extern_c7call_it{{.*}} #[[ATTR_O3_1:[0-9]+]]
 #[inline(never)]
 fn call_it(fn_ptr: FnPtr, arg_1: i32, arg_2: i32) -> i32 {
     // O0_PAUTH: call i32 %fn_ptr(i32 %arg_1, i32 %arg_2) {{.*}} [ "ptrauth"(i32 0, i64 0) ]
