@@ -73,7 +73,7 @@ cfg_select! {
     }
     _ => {
         #[link(name = "unwind", kind = "static", modifiers = "-bundle", cfg(target_feature = "crt-static"))]
-        #[link(name = "gcc_s", cfg(not(target_feature = "crt-static")))]
+        #[link(name = "unwind", cfg(not(target_feature = "crt-static")))]
         unsafe extern "C" {}
     }
 }
