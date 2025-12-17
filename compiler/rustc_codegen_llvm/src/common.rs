@@ -22,6 +22,22 @@ pub(crate) use crate::context::CodegenCx;
 use crate::context::{GenericCx, SCx};
 use crate::llvm::{self, BasicBlock, ConstantInt, FALSE, Metadata, TRUE, ToLlvmBool, Type, Value};
 
+pub(crate) fn sign_fn_ptr_if_pauth_opt<'ll>(
+    cx: &CodegenCx<'ll, '_>,
+    llfn: &'ll llvm::Value,
+) -> &'ll llvm::Value {
+    if !cx.sess().opts.unstable_opts.pauth {
+        return llfn;
+    }
+
+    unsafe {
+        // FIXME: JAKUB: constant 0 disc?
+        let authed =
+            llvm::LLVMRustConstPtrAuth(llfn as *const _ as *mut _, /*IA*/ 0, /*disc*/ 0);
+        &*authed
+    }
+}
+
 /*
 * A note on nomenclature of linking: "extern", "foreign", and "upcall".
 *

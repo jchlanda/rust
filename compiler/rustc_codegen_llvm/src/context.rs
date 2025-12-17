@@ -824,7 +824,14 @@ impl<'ll, 'tcx> MiscCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
     }
 
     fn get_fn_addr(&self, instance: Instance<'tcx>) -> &'ll Value {
-        get_fn(self, instance)
+        let llfn = get_fn(self, instance);
+
+        let name_bytes = llvm::get_value_name(llfn);
+        if name_bytes.starts_with(b"llvm.") {
+            return llfn;
+        }
+
+        common::sign_fn_ptr_if_pauth_opt(self, llfn)
     }
 
     fn eh_personality(&self) -> &'ll Value {

@@ -427,6 +427,11 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             bundles.push(kcfi_bundle);
         }
 
+        let pauth = self.ptrauth_operand_bundle(llfn);
+        if let Some(p) = pauth.as_ref().map(|b| b.as_ref()) {
+            bundles.push(p);
+        }
+
         let invoke = unsafe {
             llvm::LLVMBuildInvokeWithOperandBundles(
                 self.llbuilder,
@@ -1388,6 +1393,11 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             bundles.push(kcfi_bundle);
         }
 
+        let pauth = self.ptrauth_operand_bundle(llfn);
+        if let Some(p) = pauth.as_ref().map(|b| b.as_ref()) {
+            bundles.push(p);
+        }
+
         let call = unsafe {
             llvm::LLVMBuildCallWithOperandBundles(
                 self.llbuilder,
@@ -1823,6 +1833,11 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
             bundles.push(kcfi_bundle);
         }
 
+        let pauth = self.ptrauth_operand_bundle(llfn);
+        if let Some(p) = pauth.as_ref().map(|b| b.as_ref()) {
+            bundles.push(p);
+        }
+
         let callbr = unsafe {
             llvm::LLVMBuildCallBr(
                 self.llbuilder,
@@ -1940,6 +1955,20 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
             None
         };
         kcfi_bundle
+    }
+
+    fn ptrauth_operand_bundle(&mut self, llfn: &'ll Value) -> Option<llvm::OperandBundleBox<'ll>> {
+        let pauth_opt = self.sess().opts.unstable_opts.pauth;
+        if !pauth_opt {
+            return None;
+        }
+
+        let is_non_gv_fn_ptr = unsafe { llvm::LLVMRustIsNonGVFunctionPointerTy(llfn) };
+        if !is_non_gv_fn_ptr {
+            return None;
+        }
+
+        Some(llvm::OperandBundleBox::new("ptrauth", &[self.const_i32(0), self.const_u64(0)]))
     }
 
     /// Emits a call to `llvm.instrprof.increment`. Used by coverage instrumentation.
