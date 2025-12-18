@@ -73,7 +73,20 @@ cfg_select! {
     }
     _ => {
         #[link(name = "unwind", kind = "static", modifiers = "-bundle", cfg(target_feature = "crt-static"))]
-        #[link(name = "unwind", cfg(not(target_feature = "crt-static")))]
+        #[link(name = "gcc_s", cfg(not(target_feature = "crt-static")))]
+        unsafe extern "C" {}
+    }
+}
+
+// For pauthtest explicitly reject static CRT. Pauthtest is based on musl, the
+// only supported unwinding mechanism is provided by libunwind.
+#[cfg(target_env = "pauthtest")]
+cfg_select! {
+    target_feature = "crt-static" => {
+        compile_error!("pauthtest target only supports dynamic linking to `unwind`");
+    }
+    _ => {
+        #[link(name = "unwind")]
         unsafe extern "C" {}
     }
 }
