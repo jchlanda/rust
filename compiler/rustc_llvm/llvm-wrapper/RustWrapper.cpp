@@ -1747,6 +1747,13 @@ extern "C" bool LLVMRustIsNonGVFunctionPointerTy(LLVMValueRef V) {
   return false;
 }
 
+// Retrurn true if Callee, when used in a call instruction, would result in an
+// emission of an indirect call.
+extern "C" bool LLVMRustIsIndirectCalleeOperand(LLVMValueRef Callee) {
+  Value *V = unwrap<Value>(Callee)->stripPointerCasts();
+  return !isa<Function>(V);
+}
+
 extern "C" LLVMValueRef LLVMRustStripPointerCasts(LLVMValueRef V) {
   return wrap(unwrap(V)->stripPointerCasts());
 }

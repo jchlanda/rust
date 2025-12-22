@@ -42,6 +42,11 @@ pub(crate) fn sign_fn_ptr_if_pauth_opt<'ll>(
     llcx: &'ll llvm::Context,
     llfn: &'ll llvm::Value,
 ) -> &'ll llvm::Value {
+    let is_indirect_call = unsafe { llvm::LLVMRustIsIndirectCalleeOperand(llfn) };
+    if !is_indirect_call {
+        return llfn;
+    }
+
     if !cx.sess().opts.unstable_opts.pauth {
         return llfn;
     }
