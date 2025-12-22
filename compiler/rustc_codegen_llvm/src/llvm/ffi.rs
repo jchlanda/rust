@@ -1997,6 +1997,7 @@ unsafe extern "C" {
         Metadata: &'a Metadata,
     );
     pub(crate) fn LLVMRustIsNonGVFunctionPointerTy(Val: &Value) -> bool;
+    pub(crate) fn LLVMRustIsIndirectCalleeOperand(Val: &Value) -> bool;
 
     // Operations on scalar constants
     pub(crate) fn LLVMRustConstIntGetZExtValue(ConstantVal: &ConstantInt, Value: &mut u64) -> bool;

@@ -1968,8 +1968,8 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
         if fn_abi?.conv != CanonAbi::C {
             return None;
         }
-        let is_non_gv_fn_ptr = unsafe { llvm::LLVMRustIsNonGVFunctionPointerTy(llfn) };
-        if !is_non_gv_fn_ptr {
+        let is_indirect_call = unsafe { llvm::LLVMRustIsIndirectCalleeOperand(llfn) };
+        if !is_indirect_call {
             return None;
         }
 
