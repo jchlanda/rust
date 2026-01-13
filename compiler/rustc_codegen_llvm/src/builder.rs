@@ -26,13 +26,13 @@ use rustc_sanitizers::{cfi, kcfi};
 use rustc_session::config::OptLevel;
 use rustc_span::Span;
 use rustc_target::callconv::{FnAbi, PassMode};
-use rustc_target::spec::{Arch, HasTargetSpec, SanitizerSet, Target};
+use rustc_target::spec::{Arch, Env, HasTargetSpec, SanitizerSet, Target};
 use smallvec::SmallVec;
 use tracing::{debug, instrument};
 
 use crate::abi::FnAbiLlvmExt;
 use crate::attributes;
-use crate::common::{Funclet, apply_ptrauth_fn_attributes};
+use crate::common::{Funclet, apply_ptrauth_fn_attributes, compute_pauth_for_call};
 use crate::context::{CodegenCx, FullCx, GenericCx, SCx};
 use crate::llvm::{
     self, AtomicOrdering, AtomicRmwBinOp, BasicBlock, FromGeneric, GEPNoWrapFlags, Metadata, TRUE,
@@ -427,7 +427,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             bundles.push(kcfi_bundle);
         }
 
-        let pauth = self.ptrauth_operand_bundle(llfn, fn_abi);
+        let pauth = self.ptrauth_operand_bundle(llfn, args.as_ref(), fn_abi);
         if let Some(p) = pauth.as_ref().map(|b| b.as_ref()) {
             bundles.push(p);
         }
@@ -1393,7 +1393,7 @@ impl<'a, 'll, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'll, 'tcx> {
             bundles.push(kcfi_bundle);
         }
 
-        let pauth = self.ptrauth_operand_bundle(llfn, fn_abi);
+        let pauth = self.ptrauth_operand_bundle(llfn, args.as_ref(), fn_abi);
         if let Some(p) = pauth.as_ref().map(|b| b.as_ref()) {
             bundles.push(p);
         }
@@ -1833,7 +1833,7 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
             bundles.push(kcfi_bundle);
         }
 
-        let pauth = self.ptrauth_operand_bundle(llfn, fn_abi);
+        let pauth = self.ptrauth_operand_bundle(llfn, args.as_ref(), fn_abi);
         if let Some(p) = pauth.as_ref().map(|b| b.as_ref()) {
             bundles.push(p);
         }
@@ -1957,24 +1957,35 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
         kcfi_bundle
     }
 
+    // Emits pauth operand bundle.
     fn ptrauth_operand_bundle(
         &mut self,
         llfn: &'ll Value,
+        args: &[&'ll Value],
         fn_abi: Option<&FnAbi<'tcx, Ty<'tcx>>>,
     ) -> Option<llvm::OperandBundleBox<'ll>> {
-        if !self.sess().opts.unstable_opts.pauth {
+        // if self.sess().target.env != Env::Pauthtest {
+        if !self.sess().opts.unstable_opts.pauth || self.sess().target.env != Env::Pauthtest {
             return None;
         }
         if fn_abi?.conv != CanonAbi::C {
             return None;
         }
-        let is_indirect_call = unsafe { llvm::LLVMRustIsIndirectCalleeOperand(llfn) };
-        if !is_indirect_call {
+
+        let is_indirect_function = unsafe {
+            llvm::LLVMRustRequiresIndirectCall(llfn, args.as_ptr(), args.len() as c_uint)
+        };
+        if !is_indirect_function {
             return None;
         }
 
         apply_ptrauth_fn_attributes(self.cx().llcx, self.llfn());
-        Some(llvm::OperandBundleBox::new("ptrauth", &[self.const_i32(0), self.const_u64(0)]))
+
+        let (key, discriminator, _) = compute_pauth_for_call();
+        Some(llvm::OperandBundleBox::new(
+            "ptrauth",
+            &[self.const_u32(key), self.const_u64(discriminator)],
+        ))
     }
 
     /// Emits a call to `llvm.instrprof.increment`. Used by coverage instrumentation.

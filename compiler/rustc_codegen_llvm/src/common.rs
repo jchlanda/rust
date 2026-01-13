@@ -4,17 +4,19 @@ use std::borrow::Borrow;
 
 use libc::{c_char, c_uint};
 use rustc_abi::Primitive::Pointer;
-use rustc_abi::{self as abi, HasDataLayout as _};
+use rustc_abi::{self as abi, ExternAbi, HasDataLayout as _};
 use rustc_ast::Mutability;
 use rustc_codegen_ssa::common::TypeKind;
 use rustc_codegen_ssa::traits::*;
 use rustc_data_structures::stable_hasher::{HashStable, StableHasher};
 use rustc_hashes::Hash128;
+use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
 use rustc_middle::bug;
 use rustc_middle::mir::interpret::{ConstAllocation, GlobalAlloc, PointerArithmetic, Scalar};
-use rustc_middle::ty::TyCtxt;
+use rustc_middle::ty::{Instance, TyCtxt};
 use rustc_session::cstore::DllImport;
+use rustc_target::spec::Env;
 use tracing::debug;
 
 use crate::attributes;
@@ -22,6 +24,12 @@ use crate::consts::const_alloc_to_llvm;
 pub(crate) use crate::context::CodegenCx;
 use crate::context::{GenericCx, SCx};
 use crate::llvm::{self, BasicBlock, ConstantInt, FALSE, Metadata, TRUE, ToLlvmBool, Type, Value};
+
+// Compute key, discriminator and address diversity.
+// FIXME: JKB: For now just a placeholder.
+pub(crate) fn compute_pauth_for_call() -> (u32, u64, bool) {
+    (0u32, 0u64, false)
+}
 
 pub(crate) fn apply_ptrauth_fn_attributes<'ll>(llcx: &'ll llvm::Context, llfn: &'ll llvm::Value) {
     // Add ptrauth-* attributes.
