@@ -469,5 +469,10 @@ pub(crate) fn add_alias<'ll>(
 }
 
 unsafe extern "C" {
-    pub(crate) fn LLVMRustConstPtrAuth(Fn: *mut Value, Key: c_uint, Disc: u64) -> *mut Value;
+    pub(crate) fn LLVMRustConstPtrAuth(
+        Fn: *mut Value,
+        Key: u32,
+        Disc: u64,
+        AddrDiversity: bool,
+    ) -> *mut Value;
 }

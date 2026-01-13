@@ -1967,6 +1967,11 @@ unsafe extern "C" {
     pub(crate) fn LLVMRustIsNonGVFunctionPointerTy(Val: &Value) -> bool;
     pub(crate) fn LLVMRustStripPointerCasts<'a>(Val: &'a Value) -> &'a Value;
     pub(crate) fn LLVMRustIsIndirectCalleeOperand(Val: &Value) -> bool;
+    pub(crate) fn LLVMRustRequiresIndirectCall<'a>(
+        Val: &Value,
+        Args: *const &'a Value,
+        NumArgs: c_uint,
+    ) -> bool;
 
     // Operations on scalar constants
     pub(crate) fn LLVMRustConstIntGetZExtValue(ConstantVal: &ConstantInt, Value: &mut u64) -> bool;
