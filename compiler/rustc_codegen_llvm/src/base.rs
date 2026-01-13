@@ -25,7 +25,7 @@ use rustc_middle::mir::mono::Visibility;
 use rustc_middle::ty::TyCtxt;
 use rustc_session::config::DebugInfo;
 use rustc_span::Symbol;
-use rustc_target::spec::SanitizerSet;
+use rustc_target::spec::{Env, SanitizerSet};
 
 use super::ModuleLlvm;
 use crate::attributes;
@@ -122,7 +122,11 @@ pub(crate) fn compile_codegen_unit(
                 cx.add_objc_module_flags();
             }
 
-            if cx.sess().opts.unstable_opts.pauth && cx.ptrauth_sign_personality.get() {
+            //if cx.sess().target.env == Env::Pauthtest && cx.ptrauth_sign_personality.get()
+            if cx.sess().opts.unstable_opts.pauth
+                && cx.sess().target.env == Env::Pauthtest
+                && cx.ptrauth_sign_personality.get()
+            {
                 cx.add_ptrauth_sign_personality_flag();
             }
 

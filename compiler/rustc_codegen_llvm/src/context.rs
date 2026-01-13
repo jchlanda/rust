@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::str;
 
-use rustc_abi::{ExternAbi, HasDataLayout, Size, TargetDataLayout, VariantIdx};
+use rustc_abi::{HasDataLayout, Size, TargetDataLayout, VariantIdx};
 use rustc_codegen_ssa::back::versioned_llvm_target;
 use rustc_codegen_ssa::base::{wants_msvc_seh, wants_wasm_eh};
 use rustc_codegen_ssa::errors as ssa_errors;
@@ -13,12 +13,11 @@ use rustc_codegen_ssa::traits::*;
 use rustc_data_structures::base_n::{ALPHANUMERIC_ONLY, ToBaseN};
 use rustc_data_structures::fx::FxHashMap;
 use rustc_data_structures::small_c_str::SmallCStr;
-use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
 use rustc_middle::middle::codegen_fn_attrs::PatchableFunctionEntry;
 use rustc_middle::mir::mono::CodegenUnit;
 use rustc_middle::ty::layout::{
-    FnAbiError, FnAbiOfHelpers, FnAbiRequest, HasTyCtxt, HasTypingEnv, LayoutError, LayoutOfHelpers,
+    FnAbiError, FnAbiOfHelpers, FnAbiRequest, HasTypingEnv, LayoutError, LayoutOfHelpers,
 };
 use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
 use rustc_middle::{bug, span_bug};
@@ -840,24 +839,7 @@ impl<'ll, 'tcx> MiscCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
     fn get_fn_addr(&self, instance: Instance<'tcx>) -> &'ll Value {
         let llfn = get_fn(self, instance);
 
-        let name_bytes = llvm::get_value_name(llfn);
-        if name_bytes.starts_with(b"llvm.") {
-            return llfn;
-        }
-
-        if Some(instance.def_id()) == self.tcx().lang_items().eh_personality() {
-            self.ptrauth_sign_personality.set(true);
-        }
-
-        // FIXME: JAKUB: Should personality functions be signed with address diversity?
-        if let DefKind::Fn = self.tcx.def_kind(instance.def_id()) {
-            let abi = self.tcx.fn_sig(instance.def_id()).skip_binder().abi();
-            if let ExternAbi::C { .. } = abi {
-                return common::sign_fn_ptr_if_pauth_opt(self, self.llcx(), llfn);
-            }
-        }
-
-        return llfn;
+        common::maybe_sign_fn_ptr(self, instance, self.llcx(), llfn)
     }
 
     fn eh_personality(&self) -> &'ll Value {
