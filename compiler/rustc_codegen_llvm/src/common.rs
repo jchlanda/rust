@@ -45,25 +45,48 @@ pub(crate) fn apply_ptrauth_fn_attributes<'ll>(llcx: &'ll llvm::Context, llfn: &
     }
 }
 
-pub(crate) fn sign_fn_ptr_if_pauth_opt<'ll>(
+pub(crate) fn maybe_sign_fn_ptr<'ll, 'tcx>(
     cx: &CodegenCx<'ll, '_>,
+    instance: Instance<'tcx>,
     llcx: &'ll llvm::Context,
     llfn: &'ll llvm::Value,
 ) -> &'ll llvm::Value {
-    let is_indirect_call = unsafe { llvm::LLVMRustIsIndirectCalleeOperand(llfn) };
-    if !is_indirect_call {
+    //if cx.sess().target.env != Env::Pauthtest {
+    if !cx.sess().opts.unstable_opts.pauth || cx.sess().target.env != Env::Pauthtest {
         return llfn;
     }
 
-    if !cx.sess().opts.unstable_opts.pauth {
+    // Only free functions or methods
+    let def_id = instance.def_id();
+    if !matches!(cx.tcx.def_kind(def_id), DefKind::Fn | DefKind::AssocFn) {
+        return llfn;
+    }
+    // Only C ABI
+    let abi = cx.tcx.fn_sig(def_id).skip_binder().abi();
+    if !matches!(abi, ExternAbi::C { .. }) {
+        return llfn;
+    }
+    // Ignore LLVM intrinsics
+    if llvm::get_value_name(llfn).starts_with(b"llvm.") {
+        return llfn;
+    }
+    if Some(def_id) == cx.tcx.lang_items().eh_personality() {
+        // FIXME: JKB: Should personality functions be signed with address diversity?
+        // And special discriminator?
+        // self.ptrauth_sign_personality.set(true);
         return llfn;
     }
 
     apply_ptrauth_fn_attributes(llcx, llfn);
+
+    let (key, discriminator, addr_diversity) = compute_pauth_for_call();
     unsafe {
-        // FIXME: JAKUB: constant 0 disc?
-        let authed =
-            llvm::LLVMRustConstPtrAuth(llfn as *const _ as *mut _, /*IA*/ 0, /*disc*/ 0);
+        let authed = llvm::LLVMRustConstPtrAuth(
+            llfn as *const _ as *mut _,
+            key,
+            discriminator,
+            addr_diversity,
+        );
         &*authed
     }
 }
