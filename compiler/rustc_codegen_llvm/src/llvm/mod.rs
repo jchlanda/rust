@@ -454,5 +454,10 @@ pub(crate) fn append_module_inline_asm<'ll>(llmod: &'ll Module, asm: &[u8]) {
 }
 
 unsafe extern "C" {
-    pub(crate) fn LLVMRustConstPtrAuth(Fn: *mut Value, Key: c_uint, Disc: u64) -> *mut Value;
+    pub(crate) fn LLVMRustConstPtrAuth(
+        Fn: *mut Value,
+        Key: u32,
+        Disc: u64,
+        AddrDiversity: bool,
+    ) -> *mut Value;
 }

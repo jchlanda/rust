@@ -7,6 +7,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/BinaryFormat/Magic.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/DIBuilder.h"
@@ -1764,11 +1765,92 @@ extern "C" bool LLVMRustIsNonGVFunctionPointerTy(LLVMValueRef V) {
   return false;
 }
 
-// Retrurn true if Callee, when used in a call instruction, would result in an
-// emission of an indirect call.
-extern "C" bool LLVMRustIsIndirectCalleeOperand(LLVMValueRef Callee) {
-  Value *V = unwrap<Value>(Callee)->stripPointerCasts();
-  return !isa<Function>(V);
+static bool containsConstantPtrAuth(const Value *V) {
+  SmallPtrSet<const Value *, 8> Seen;
+
+  while (V && Seen.insert(V).second) {
+    if (isa<ConstantPtrAuth>(V))
+      return true;
+
+    if (auto *GA = dyn_cast<GlobalAlias>(V)) {
+      V = GA->getAliasee();
+      continue;
+    }
+
+    if (auto *CE = dyn_cast<ConstantExpr>(V)) {
+      if (CE->isCast()) {
+        V = CE->getOperand(0);
+        continue;
+      }
+    }
+
+    V = V->stripPointerCasts();
+    break;
+  }
+
+  return false;
+}
+
+extern "C" bool LLVMRustRequiresIndirectCall(LLVMValueRef V, LLVMValueRef *Args,
+                                             unsigned NumArgs) {
+  const Value *Val = unwrap<Value>(V);
+  if (!Val)
+    return false;
+
+  if (isa<InlineAsm>(Val))
+    return false;
+
+  // FIXME: JKB: If the input value is ConstantPtrAuth function, whose argument
+  // is itself a ConstantPtrAuth, consider it an indirect call. This logic
+  // might be reworked once get_fn_addr is more strict with the use of
+  // ConstantPtrAuth.
+  // For example:
+  // call void ptrauth (ptr @quickSort, i32 0)(ptr %data, i64 5, i64 4, ptr
+  //   ptrauth (ptr @_RNvCshZ9kMv8z9bM_4main17cmp_i32_ascending, i32 0)) #13 [
+  //   "ptrauth"(i32 0, i64 0) ]
+  if (isa<ConstantPtrAuth>(Val)) {
+    for (unsigned I = 0; I < NumArgs; ++I) {
+      const Value *Arg = unwrap<Value>(Args[I]);
+      if (!Arg)
+        continue;
+
+      if (containsConstantPtrAuth(Arg))
+        return true;
+    }
+  }
+
+  SmallPtrSet<const Value *, 8> Seen;
+  const Value *Prev = nullptr;
+
+  bool ConstPtrAuthSeen = false;
+  while (Val != Prev) {
+    if (!Seen.insert(Val).second)
+      break;
+
+    Prev = Val;
+    Val = Val->stripPointerCasts();
+    Val = getUnderlyingObject(Val);
+
+    while (auto *GA = dyn_cast<GlobalAlias>(Val))
+      Val = GA->getAliasee();
+
+    while (auto *CE = dyn_cast<ConstantExpr>(Val)) {
+      if (!CE->isCast())
+        break;
+      Val = CE->getOperand(0)->stripPointerCasts();
+    }
+
+    if (isa<ConstantPtrAuth>(Val) && !ConstPtrAuthSeen) {
+      ConstPtrAuthSeen = true;
+      Val = dyn_cast<ConstantPtrAuth>(Val)->getPointer();
+    }
+
+    if (isa<Function>(Val) || isa<GlobalIFunc>(Val)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 extern "C" bool LLVMRustLLVMHasZlibCompression() {
@@ -1798,8 +1880,9 @@ extern "C" void LLVMRustSetNoSanitizeHWAddress(LLVMValueRef Global) {
   GV.setSanitizerMetadata(MD);
 }
 
-extern "C" LLVMValueRef LLVMRustConstPtrAuth(LLVMValueRef Ptr, unsigned Key,
-                                             uint64_t Disc) {
+extern "C" LLVMValueRef LLVMRustConstPtrAuth(LLVMValueRef Ptr, uint32_t Key,
+                                             uint64_t Disc,
+                                             bool AddrDiversity) {
   auto *V = unwrap<Value>(Ptr);
   auto *C = dyn_cast<Constant>(V);
   if (!C)
@@ -1813,7 +1896,7 @@ extern "C" LLVMValueRef LLVMRustConstPtrAuth(LLVMValueRef Ptr, unsigned Key,
   LLVMContext &Ctx = C->getContext();
   auto *KeyC = ConstantInt::get(Type::getInt32Ty(Ctx), Key);
   auto *DiscC = ConstantInt::get(Type::getInt64Ty(Ctx), Disc);
-  auto *NullAD = ConstantPointerNull::get(PTy); // FIXME: JAKUB
+  auto *NullAD = ConstantPointerNull::get(PTy);
 
   return wrap(ConstantPtrAuth::get(C, KeyC, DiscC, NullAD));
 }
