@@ -27,6 +27,7 @@ extern "C" fn cmp_i32_ascending(a: *const c_void, b: *const c_void) -> c_int {
 
 fn main() {
     let mut data: [i32; 5] = [4, 2, 5, 3, 1];
+    println!("Before sorting: {:?}", data);
 
     unsafe {
         quickSort(
@@ -37,5 +38,6 @@ fn main() {
         );
     }
 
+    println!("After sorting:  {:?}", data);
     assert!(data.windows(2).all(|w| w[0] <= w[1]));
 }

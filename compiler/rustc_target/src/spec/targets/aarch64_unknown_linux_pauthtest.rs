@@ -2,19 +2,29 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use crate::spec::{
-    Arch, Cc, Env, FramePointer, LinkerFlavor, Lld, StackProbeType, Target, TargetMetadata,
-    TargetOptions, base,
+    Arch, Cc, Env, FramePointer, LinkerFlavor, Lld, MergeFunctions, StackProbeType, Target,
+    TargetMetadata, TargetOptions, base,
 };
 
 pub(crate) fn target() -> Target {
-    let mut pre_link_args = BTreeMap::new();
     let root = std::env::var("LLVM_PAUTH").unwrap_or_else(|_| "/opt/llvm-pauth".into());
-    let lib_path = format!("{}/aarch64-linux-pauthtest/usr/lib", root);
-    let lib_path_static: &'static str = Box::leak(lib_path.into_boxed_str());
-    pre_link_args.insert(
-        LinkerFlavor::Gnu(Cc::Yes, Lld::No),
-        vec![Cow::Owned(format!("-L{}", lib_path_static))],
-    );
+
+    let pre_link_args = BTreeMap::from([(LinkerFlavor::Gnu(Cc::Yes, Lld::No), {
+        let lib_path =
+            Box::leak(format!("-L{}/aarch64-linux-pauthtest/usr/lib", root).into_boxed_str());
+        vec![Cow::Borrowed(lib_path)]
+    })]);
+    let late_link_args = BTreeMap::from([(LinkerFlavor::Gnu(Cc::Yes, Lld::No), {
+        let dynamic_linker = Box::leak(
+            format!("-Wl,--dynamic-linker={}/aarch64-linux-pauthtest/usr/lib/libc.so", root)
+                .into_boxed_str(),
+        );
+        let rpath = Box::leak(
+            format!("-Wl,--rpath={}/aarch64-linux-pauthtest/usr/lib", root).into_boxed_str(),
+        );
+
+        vec![Cow::Borrowed(dynamic_linker), Cow::Borrowed(rpath)]
+    })]);
 
     Target {
         llvm_target: "aarch64-unknown-linux-pauthtest".into(),
@@ -30,7 +40,7 @@ pub(crate) fn target() -> Target {
 
         options: TargetOptions {
             env: Env::Pauthtest,
-            features: "+v8a,+outline-atomics".into(),
+            features: "+v8a,+outline-atomics,+pauth".into(),
             max_atomic_width: Some(128),
             stack_probes: StackProbeType::Inline,
             crt_static_default: false,
@@ -39,11 +49,17 @@ pub(crate) fn target() -> Target {
             dynamic_linking: true,
             linker: Some("aarch64-linux-pauthtest-clang".into()),
             pre_link_args,
+            late_link_args,
+            has_rpath: true,
+            position_independent_executables: true,
             // the AAPCS64 expects use of non-leaf frame pointers per
             // https://github.com/ARM-software/abi-aa/blob/4492d1570eb70c8fd146623e0db65b2d241f12e7/aapcs64/aapcs64.rst#the-frame-pointer
             // and we tend to encounter interesting bugs in AArch64 unwinding code if we do not
             frame_pointer: FramePointer::NonLeaf,
             mcount: "\u{1}_mcount".into(),
+            // FIXME: JKB: Remove once https://github.com/llvm/llvm-project/pull/159480 is
+            // available.
+            merge_functions: MergeFunctions::Disabled,
             ..base::linux_musl::opts()
          },
     }

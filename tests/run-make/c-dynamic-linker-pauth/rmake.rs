@@ -1,10 +1,8 @@
-// FIXME: Jakub: Add description.
+// Test compilation flow using custom pauth-enabled toolchain and signing extern "C" function
+// pointers used from withing rust. Note that in order for the test to work the toolchain has to be
+// provided via env variable (LLVM_PAUTH), or present at `/opt/llvm-pauth`.
 
-// FIXME: Jakub:
-// Till pauthtest target is added run it with RUST_TARGET_PATH and json explicitly, for exammple:
-// $ RUST_TARGET_PATH=$(pwd) ./x.py test --target aarch64-linux-pauthtest c-dynamic-linker-pauth
-
-//@ only-aarch64-linux-pauthtest
+//FIXME: JKB: Limit it to only only-aarch64-linux-pauthtest XXX@ only-aarch64-linux-pauthtest
 
 use run_make_support::{cc, rfs, run, run_fail, rustc};
 
@@ -24,27 +22,7 @@ fn main() {
         .args(&["-target", "aarch64-linux-pauthtest", "-fPIC", "-shared"])
         .run();
 
-    let dynamic_linker =
-        format!("link-arg=-Wl,--dynamic-linker={}/aarch64-linux-pauthtest/usr/lib/libc.so", root,);
-    let rpath = format!("link-arg=-Wl,--rpath={}/aarch64-linux-pauthtest/usr/lib", root,);
-    let libpath = format!("link-arg=-L{}/aarch64-linux-pauthtest/usr/lib", root,);
-    rustc()
-        .input("main.rs")
-        .args(&[
-            "-C",
-            "target-feature=-crt-static",
-            "-Z",
-            "pauth",
-            "-C",
-            "link-arg=-lunwind",
-            "-C",
-            &dynamic_linker,
-            "-C",
-            &rpath,
-            "-C",
-            &libpath,
-        ])
-        .run();
+    rustc().input("main.rs").args(&["-Z", "pauth"]).run();
     run("main");
 
     rfs::remove_file(&lib_name);
