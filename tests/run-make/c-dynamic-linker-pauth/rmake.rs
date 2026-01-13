@@ -2,7 +2,7 @@
 // pointers used from withing rust. Note that in order for the test to work the toolchain has to be
 // provided via env variable (LLVM_PAUTH), or present at `/opt/llvm-pauth`.
 
-//FIXME: JKB: Limit it to only only-aarch64-linux-pauthtest XXX@ only-aarch64-linux-pauthtest
+//FIXME: JKB: Limit it to only only-aarch64-linux-pauthtest
 
 use run_make_support::{cc, rfs, run, run_fail, rustc};
 
