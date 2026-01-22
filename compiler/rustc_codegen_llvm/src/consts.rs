@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use rustc_abi::{Align, HasDataLayout, Primitive, Scalar, Size, WrappingRange};
+use rustc_abi::{Align, ExternAbi, HasDataLayout, Primitive, Scalar, Size, WrappingRange};
 use rustc_codegen_ssa::common;
 use rustc_codegen_ssa::traits::*;
 use rustc_hir::LangItem;
@@ -17,7 +17,7 @@ use rustc_middle::ty::layout::{HasTypingEnv, LayoutOf};
 use rustc_middle::ty::{self, Instance};
 use rustc_middle::{bug, span_bug};
 use rustc_span::Symbol;
-use rustc_target::spec::Arch;
+use rustc_target::spec::{Arch, Env};
 use tracing::{debug, instrument, trace};
 
 use crate::common::CodegenCx;
@@ -164,6 +164,7 @@ fn check_and_apply_linkage<'ll, 'tcx>(
     if let Some(linkage) = attrs.import_linkage {
         debug!("get_static: sym={} linkage={:?}", sym, linkage);
 
+        let mut needs_link_adj = true;
         // Declare a symbol `foo`. If `foo` is an extern_weak symbol, we declare
         // an extern_weak function, otherwise a global with the desired linkage.
         let g1 = if matches!(attrs.import_linkage, Some(Linkage::ExternalWeak)) {
@@ -176,16 +177,36 @@ fn check_and_apply_linkage<'ll, 'tcx>(
                 && let ty::FnPtr(sig, header) = args.type_at(0).kind()
             {
                 let fn_sig = sig.with(*header);
-
                 let fn_abi = cx.fn_abi_of_fn_ptr(fn_sig, ty::List::empty());
-                cx.declare_fn(sym, &fn_abi, None)
+
+                let declared_function = cx.declare_fn(sym, &fn_abi, None);
+                if cx.sess().target.env != Env::Pauthtest
+                    || !matches!(fn_sig.abi(), ExternAbi::C { .. })
+                {
+                    declared_function
+                } else {
+                    let straight_signed = unsafe {
+                        let authed = llvm::LLVMRustConstPtrAuth(
+                            cx.const_bitcast(declared_function, llty) as *const _ as *mut _,
+                            0,
+                            0,
+                            false,
+                        );
+                        &*authed
+                    };
+                    llvm::set_linkage(declared_function, base::linkage_to_llvm(linkage));
+                    needs_link_adj = false;
+                    straight_signed
+                }
             } else {
                 cx.declare_global(sym, cx.type_i8())
             }
         } else {
             cx.declare_global(sym, cx.type_i8())
         };
-        llvm::set_linkage(g1, base::linkage_to_llvm(linkage));
+        if needs_link_adj {
+            llvm::set_linkage(g1, base::linkage_to_llvm(linkage));
+        }
 
         // Declare an internal global `extern_with_linkage_foo` which
         // is initialized with the address of `foo`. If `foo` is
