@@ -362,8 +362,12 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
                                 self.const_bitcast(llval, llty)
                             };
                         } else {
-                            let init =
-                                const_alloc_to_llvm(self, alloc.inner(), /*static*/ false);
+                            let init = const_alloc_to_llvm(
+                                self,
+                                alloc.inner(),
+                                /*static*/ false,
+                                /*is_in_init_fini*/ false,
+                            );
                             let alloc = alloc.inner();
                             let value = match alloc.mutability {
                                 Mutability::Mut => self.static_addr_of_mut(init, alloc.align, None),
@@ -395,7 +399,12 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
                                 }),
                             )))
                             .unwrap_memory();
-                        let init = const_alloc_to_llvm(self, alloc.inner(), /*static*/ false);
+                        let init = const_alloc_to_llvm(
+                            self,
+                            alloc.inner(),
+                            /*static*/ false,
+                            /*is_in_init_fini*/ false,
+                        );
                         self.static_addr_of_impl(init, alloc.inner().align, None)
                     }
                     GlobalAlloc::Static(def_id) => {
@@ -426,6 +435,15 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
                 }
             }
         }
+    }
+
+    fn const_data_from_alloc(&self, alloc: ConstAllocation<'_>) -> Self::Value {
+        const_alloc_to_llvm(
+            self,
+            alloc.inner(),
+            /*static*/ false,
+            /*is_in_init_fini*/ false,
+        )
     }
 
     fn const_ptr_byte_offset(&self, base_addr: Self::Value, offset: abi::Size) -> Self::Value {

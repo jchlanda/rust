@@ -9,8 +9,8 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
 use rustc_middle::middle::codegen_fn_attrs::{CodegenFnAttrFlags, CodegenFnAttrs};
 use rustc_middle::mir::interpret::{
-    Allocation, ConstAllocation, ErrorHandled, InitChunk, Pointer, Scalar as InterpScalar,
-    read_target_uint,
+    Allocation, ConstAllocation, ErrorHandled, GlobalAlloc, InitChunk, Pointer,
+    Scalar as InterpScalar, read_target_uint,
 };
 use rustc_middle::mir::mono::MonoItem;
 use rustc_middle::ty::layout::{HasTypingEnv, LayoutOf};
@@ -20,16 +20,56 @@ use rustc_span::Symbol;
 use rustc_target::spec::{Arch, Env};
 use tracing::{debug, instrument, trace};
 
-use crate::common::CodegenCx;
+use crate::common::{CodegenCx, compute_pauth_for_call};
 use crate::errors::SymbolAlreadyDefined;
 use crate::llvm::{self, Type, Value};
 use crate::type_of::LayoutLlvmExt;
 use crate::{base, debuginfo};
 
+fn scalar_fn_no_ptrauth_to_backend<'ll>(
+    cx: &CodegenCx<'ll, '_>,
+    cv: InterpScalar,
+    llty: &'ll Type,
+) -> &'ll Value {
+    // This function is a distilled version of ConstCodegenMethods::scalar_to_backend, implemented
+    // here so that we don't have to extend the trait. It only expects pointers to functions. Its
+    // sole purpose is to use a non-pointer-authenticated function address. This is needed when
+    // such addresse is used in init or fini arrays and pointer authentication signing is
+    // disabled.
+    let ptr = match cv {
+        InterpScalar::Ptr(ptr, _size) => ptr,
+        _ => panic!("Fatal error: expected Scalar::Ptr, got {:?}", cv),
+    };
+
+    let (prov, offset) = ptr.prov_and_relative_offset();
+    let global_alloc = cx.tcx.global_alloc(prov.alloc_id());
+    let base_addr = match global_alloc {
+        GlobalAlloc::Function { instance, .. } => {
+            // FIXME: JKB: The use of get_fn here is dubious. It should really be get_fn_addr;
+            // however, at the moment get_fn_addr always returns an address wrapped in
+            // ConstantPtrAuth, which is not what we want for init/fini arrays. The implementation
+            // of get_fn is identical to get_fn_addr, except that it does not sign the pointer.
+            // Ideally, there would be a non-signed version of get_fn_addr, but that would require
+            // extending the MiscCodegenMethods trait.
+            cx.get_fn(instance)
+        }
+        _ => panic!("Fatal error: expected GlobalAlloc::Function, got {:?}", global_alloc),
+    };
+
+    let llval = unsafe {
+        llvm::LLVMConstInBoundsGEP2(cx.type_i8(), base_addr, &cx.const_usize(offset.bytes()), 1)
+    };
+
+    let res = cx.const_bitcast(llval, llty);
+    debug!("scalar_fn_no_ptrauth_to_backend: res = {:?}", res);
+    res
+}
+
 pub(crate) fn const_alloc_to_llvm<'ll>(
     cx: &CodegenCx<'ll, '_>,
     alloc: &Allocation,
     is_static: bool,
+    is_in_init_fini: bool,
 ) -> &'ll Value {
     // We expect that callers of const_alloc_to_llvm will instead directly codegen a pointer or
     // integer for any &ZST where the ZST is a constant (i.e. not a static). We should never be
@@ -109,15 +149,34 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
             as u64;
 
         let address_space = cx.tcx.global_alloc(prov.alloc_id()).address_space(cx);
+        // Pauthtest function pointers stored in init/fini arrays need special handling. Decide if
+        // to sign those functions.
+        let pauth_init_fini_no_sign = is_in_init_fini
+            && cx.sess().target.env == Env::Pauthtest
+            && !cx.sess().opts.unstable_opts.pauth_sign_init_fini;
 
-        llvals.push(cx.scalar_to_backend(
-            InterpScalar::from_pointer(Pointer::new(prov, Size::from_bytes(ptr_offset)), &cx.tcx),
-            Scalar::Initialized {
-                value: Primitive::Pointer(address_space),
-                valid_range: WrappingRange::full(pointer_size),
-            },
-            cx.type_ptr_ext(address_space),
-        ));
+        llvals.push(if pauth_init_fini_no_sign {
+            scalar_fn_no_ptrauth_to_backend(
+                cx,
+                InterpScalar::from_pointer(
+                    Pointer::new(prov, Size::from_bytes(ptr_offset)),
+                    &cx.tcx,
+                ),
+                cx.type_ptr_ext(address_space),
+            )
+        } else {
+            cx.scalar_to_backend(
+                InterpScalar::from_pointer(
+                    Pointer::new(prov, Size::from_bytes(ptr_offset)),
+                    &cx.tcx,
+                ),
+                Scalar::Initialized {
+                    value: Primitive::Pointer(address_space),
+                    valid_range: WrappingRange::full(pointer_size),
+                },
+                cx.type_ptr_ext(address_space),
+            )
+        });
         next_offset = offset + pointer_size_bytes;
     }
     if alloc.len() >= next_offset {
@@ -141,7 +200,15 @@ fn codegen_static_initializer<'ll, 'tcx>(
     def_id: DefId,
 ) -> Result<(&'ll Value, ConstAllocation<'tcx>), ErrorHandled> {
     let alloc = cx.tcx.eval_static_initializer(def_id)?;
-    Ok((const_alloc_to_llvm(cx, alloc.inner(), /*static*/ true), alloc))
+    let attrs = cx.tcx.codegen_fn_attrs(def_id);
+    let is_in_init_fini = attrs
+        .link_section
+        .map(|link_section| {
+            let s = link_section.as_str();
+            s.starts_with(".init_array") || s.starts_with(".fini_array")
+        })
+        .unwrap_or(false);
+    Ok((const_alloc_to_llvm(cx, alloc.inner(), /*static*/ true, is_in_init_fini), alloc))
 }
 
 fn set_global_alignment<'ll>(cx: &CodegenCx<'ll, '_>, gv: &'ll Value, mut align: Align) {
@@ -185,12 +252,13 @@ fn check_and_apply_linkage<'ll, 'tcx>(
                 {
                     declared_function
                 } else {
+                    let (key, discriminator, addr_diversity) = compute_pauth_for_call();
                     let straight_signed = unsafe {
                         let authed = llvm::LLVMRustConstPtrAuth(
                             cx.const_bitcast(declared_function, llty) as *const _ as *mut _,
-                            0,
-                            0,
-                            false,
+                            key,
+                            discriminator,
+                            addr_diversity,
                         );
                         &*authed
                     };
