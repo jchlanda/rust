@@ -30,7 +30,7 @@ run-time feature detection. When this feature is disabled, `std_detect` assumes
 that [`getauxval`] is linked to the binary. If that is not the case the behavior
 is undefined.
 
-  Note: This feature is ignored on `*-linux-{gnu,musl,ohos}*` and `*-android*` targets
+  Note: This feature is ignored on `*-linux-{gnu,musl,ohos,pauthtest}*` and `*-android*` targets
   because we can safely assume `getauxval` is linked to the binary.
   * `*-linux-gnu*` targets ([since Rust 1.64](https://blog.rust-lang.org/2022/08/01/Increasing-glibc-kernel-requirements.html))
     have glibc requirements higher than [glibc 2.16 that added `getauxval`](https://sourceware.org/legacy-ml/libc-announce/2012/msg00000.html).

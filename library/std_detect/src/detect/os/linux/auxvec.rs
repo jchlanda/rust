@@ -56,7 +56,7 @@ pub(crate) struct AuxVec {
 /// be detected at compile-time.
 ///
 ///  Note: The `std_detect_dlsym_getauxval` cargo feature is ignored on
-/// `*-linux-{gnu,musl,ohos}*` and `*-android*` targets because we can safely assume `getauxval`
+/// `*-linux-{gnu,musl,ohos,pauthtest}*` and `*-android*` targets because we can safely assume `getauxval`
 /// is linked to the binary.
 /// - `*-linux-gnu*` targets ([since Rust 1.64](https://blog.rust-lang.org/2022/08/01/Increasing-glibc-kernel-requirements.html))
 ///   have glibc requirements higher than [glibc 2.16 that added `getauxval`](https://sourceware.org/legacy-ml/libc-announce/2012/msg00000.html).
@@ -136,7 +136,7 @@ fn getauxval(key: usize) -> Result<usize, ()> {
             feature = "std_detect_dlsym_getauxval",
             not(all(
                 target_os = "linux",
-                any(target_env = "gnu", target_env = "musl", target_env = "ohos"),
+                any(target_env = "gnu", target_env = "musl", target_env = "ohos", target_env = "pauthtest"),
             )),
             not(target_os = "android"),
         ) => {
