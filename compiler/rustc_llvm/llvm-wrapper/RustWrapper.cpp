@@ -1887,8 +1887,7 @@ extern "C" LLVMValueRef LLVMRustConstPtrAuth(LLVMValueRef Ptr, uint32_t Key,
   auto *C = dyn_cast<Constant>(V);
   if (!C)
     return Ptr;
-  auto *PTy = dyn_cast<PointerType>(C->getType());
-  if (!PTy)
+  if (!C->getType()->isPointerTy())
     return Ptr;
   if (isa<UndefValue>(C) || isa<ConstantPointerNull>(C))
     return Ptr;
@@ -1896,6 +1895,7 @@ extern "C" LLVMValueRef LLVMRustConstPtrAuth(LLVMValueRef Ptr, uint32_t Key,
   LLVMContext &Ctx = C->getContext();
   auto *KeyC = ConstantInt::get(Type::getInt32Ty(Ctx), Key);
   auto *DiscC = ConstantInt::get(Type::getInt64Ty(Ctx), Disc);
+  auto *PTy = cast<PointerType>(C->getType());
   auto *NullAD = ConstantPointerNull::get(PTy);
 
   return wrap(ConstantPtrAuth::get(C, KeyC, DiscC, NullAD));

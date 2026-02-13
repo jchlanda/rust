@@ -33,8 +33,7 @@ pub(crate) fn compute_pauth_for_call() -> (u32, u64, bool) {
 
 pub(crate) fn apply_ptrauth_fn_attributes<'ll>(llcx: &'ll llvm::Context, llfn: &'ll llvm::Value) {
     // Add ptrauth-* attributes.
-    let attrs =
-        ["ptrauth-auth-traps", "ptrauth-calls", "ptrauth-indirect-gotos", "ptrauth-returns"];
+    let attrs = ["ptrauth-calls", "ptrauth-returns"];
 
     for &attr in &attrs {
         attributes::apply_to_llfn(

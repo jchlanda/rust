@@ -1970,13 +1970,18 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
         if fn_abi?.conv != CanonAbi::C {
             return None;
         }
-
-        let is_indirect_function = unsafe {
-            llvm::LLVMRustRequiresIndirectCall(llfn, args.as_ptr(), args.len() as c_uint)
-        };
-        if !is_indirect_function {
+        // Filter out LLVM intrinsics.
+        let name = llvm::get_value_name(llfn);
+        if name.starts_with(b"llvm.") {
             return None;
         }
+        // FIXME: JKB: operand bundles should only be attached to indirect function calls. However,
+        // as function signing is unstable, we end up signing too eagerly (including direct function
+        // calls), hence add operand bundles to all calls. Keep a call to
+        // LLVMRustRequiresIndirectCall, so the code does not rot.
+        let _is_indirect_function = unsafe {
+            llvm::LLVMRustRequiresIndirectCall(llfn, args.as_ptr(), args.len() as c_uint)
+        };
 
         apply_ptrauth_fn_attributes(self.cx().llcx, self.llfn());
 
