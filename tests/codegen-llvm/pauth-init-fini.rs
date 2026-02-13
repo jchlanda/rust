@@ -3,13 +3,13 @@
 
 // FIXME: JKB: This should really be aarch64 pauthtest
 //@ [O0_PAUTH] needs-llvm-components: aarch64
-//@ [O0_PAUTH] compile-flags: --target=aarch64-unknown-linux-pauthtest -Z pauth -C opt-level=0
+//@ [O0_PAUTH] compile-flags: --target=aarch64-unknown-linux-pauthtest -C opt-level=0
 //@ [O3_PAUTH] needs-llvm-components: aarch64
-//@ [O3_PAUTH] compile-flags: --target=aarch64-unknown-linux-pauthtest -Z pauth -C opt-level=3
+//@ [O3_PAUTH] compile-flags: --target=aarch64-unknown-linux-pauthtest -C opt-level=3
 //@ [O0_PAUTH_SIGN_INIT_FINI] needs-llvm-components: aarch64
-//@ [O0_PAUTH_SIGN_INIT_FINI] compile-flags: --target=aarch64-unknown-linux-pauthtest -Z pauth -Z pauth_sign_init_fini -C opt-level=0
+//@ [O0_PAUTH_SIGN_INIT_FINI] compile-flags: --target=aarch64-unknown-linux-pauthtest -Z pauth_sign_init_fini -C opt-level=0
 //@ [O3_PAUTH_SIGN_INIT_FINI] needs-llvm-components: aarch64
-//@ [O3_PAUTH_SIGN_INIT_FINI] compile-flags: --target=aarch64-unknown-linux-pauthtest -Z pauth -Z pauth_sign_init_fini -C opt-level=3
+//@ [O3_PAUTH_SIGN_INIT_FINI] compile-flags: --target=aarch64-unknown-linux-pauthtest -Z pauth_sign_init_fini -C opt-level=3
 
 #![crate_type = "lib"]
 #![feature(linkage)]

@@ -1,7 +1,7 @@
 //@ assembly-output: emit-asm
 // ignore-tidy-linelength
 //@ revisions: aarch64_unknown_linux_pauthtest
-//@ [aarch64_unknown_linux_pauthtest] compile-flags: --target=aarch64-unknown-linux-pauthtest -Z pauth
+//@ [aarch64_unknown_linux_pauthtest] compile-flags: --target=aarch64-unknown-linux-pauthtest
 // FIXME: JKB: This should really be aarch64-pauthtest
 //@ [aarch64_unknown_linux_pauthtest] needs-llvm-components: aarch64
 
