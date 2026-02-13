@@ -16,10 +16,23 @@ pub extern "C" fn add(a: i32, b: i32) -> i32 {
 
 #[no_mangle]
 #[inline(never)]
-pub fn call_add(x: i32) -> i32 {
-    add(x, 1)
+fn call_through(f: extern "C" fn(i32, i32) -> i32, x: i32) -> i32 {
+    f(x, 1)
 }
 
+#[no_mangle]
+#[inline(never)]
+pub fn call_add(x: i32) -> i32 {
+    call_through(add, x)
+}
+
+// CHECK-LABEL: call_through:
+// CHECK: mov x2, x0
+// CHECK: mov w0, w1
+// CHECK: mov w1, #1
+// CHECK: braaz x2
+
+// CHECK-LABEL: call_add:
 // CHECK: adrp    x16, :got:add
 // CHECK: ldr x16, [x16, :got_lo12:add]
 // CHECK: paciza  x16
