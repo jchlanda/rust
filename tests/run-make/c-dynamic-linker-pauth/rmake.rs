@@ -22,7 +22,7 @@ fn main() {
         .args(&["-target", "aarch64-linux-pauthtest", "-fPIC", "-shared"])
         .run();
 
-    rustc().target("aarch64-unknown-linux-pauthtest").input("main.rs").args(&["-Z", "pauth"]).run();
+    rustc().target("aarch64-unknown-linux-pauthtest").input("main.rs").run();
     run("main");
 
     rfs::remove_file(&lib_name);

@@ -1964,8 +1964,7 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
         args: &[&'ll Value],
         fn_abi: Option<&FnAbi<'tcx, Ty<'tcx>>>,
     ) -> Option<llvm::OperandBundleBox<'ll>> {
-        // if self.sess().target.env != Env::Pauthtest {
-        if !self.sess().opts.unstable_opts.pauth || self.sess().target.env != Env::Pauthtest {
+        if self.sess().target.env != Env::Pauthtest {
             return None;
         }
         if fn_abi?.conv != CanonAbi::C {

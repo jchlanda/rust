@@ -51,8 +51,7 @@ pub(crate) fn maybe_sign_fn_ptr<'ll, 'tcx>(
     llcx: &'ll llvm::Context,
     llfn: &'ll llvm::Value,
 ) -> &'ll llvm::Value {
-    //if cx.sess().target.env != Env::Pauthtest {
-    if !cx.sess().opts.unstable_opts.pauth || cx.sess().target.env != Env::Pauthtest {
+    if cx.sess().target.env != Env::Pauthtest {
         return llfn;
     }
 
