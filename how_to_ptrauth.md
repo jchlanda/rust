@@ -191,12 +191,15 @@ Finally issue: `./x.py build` followed by `./x.py build --target aarch64-unknown
 * Simple ASM emission test (required by Rust's tidy policy): https://github.com/jchlanda/rust/blob/v.0.1.1/tests/assembly-llvm/targets/targets-aarch64_unknown_linux_pauthtest.rs
 * IR generation https://github.com/jchlanda/rust/blob/v.0.1.1/tests/codegen-llvm/pauth-extern-c-direct-indirect-call.rs and https://github.com/jchlanda/rust/blob/v.0.1.1/tests/codegen-llvm/pauth-extern-c.rs
 * Enabling of init/fini signing: https://github.com/jchlanda/rust/blob/v.0.1.1/tests/codegen-llvm/pauth-init-fini.rs
-* End-to-end execution. Prior to running this test make sure that the linker, as specified in `target.aarch64-unknown-linux-pauthtest` section is on the path; if the toolchain instructions have been followed, it should be located in the `/opt/llvm-pauth/bin` directory. The test: https://github.com/jchlanda/rust/tree/v.0.1.1/tests/run-make/c-dynamic-linker-pauth.
+* End-to-end execution. Prior to running those tests make sure that the linker, as specified in `target.aarch64-unknown-linux-pauthtest` section is on the path; if the toolchain instructions have been followed, it should be located in the `/opt/llvm-pauth/bin` directory.
+
+  * Rust drives the program, by providing the data and the comparison function, C implements the quicksort algorithm: https://github.com/jchlanda/rust/tree/v.0.1.1/tests/run-make/pauth-quicksort-rust-driver.
 
     Inspection of the binary:
     * Expected format:
     ```text
-    file <build_root>/aarch64-unknown-linux-gnu/test/run-make/c-dynamic-linker-pauth/rmake_out/main
+    file
+    <build_root>/aarch64-unknown-linux-gnu/test/run-make/pauth-quicksort-rust-driver/rmake_out/main
     ```
     It should report as:
     ```text
@@ -205,16 +208,18 @@ Finally issue: `./x.py build` followed by `./x.py build --target aarch64-unknown
 
     * Assembly inspection:
     ```text
-    /opt/llvm-pauth/bin/llvm-objdump -d <build_root>/aarch64-unknown-linux-gnu/test/run-make/c-dynamic-linker-pauth/rmake_out/main > c-dynamic-linker-pauth.s
+    /opt/llvm-pauth/bin/llvm-objdump -d <build_root>/aarch64-unknown-linux-gnu/test/run-make/pauth-quicksort-rust-driver/rmake_out/main > pauth-quicksort-rust-driver.s
     ```
     * Readelf and relocation:
     ```text
-    /opt/llvm-pauth/bin/llvm-readelf --all <build_root>/aarch64-unknown-linux-gnu/test/run-make/c-dynamic-linker-pauth/rmake_out/main > c-dynamic-linker-pauth.txt
+    /opt/llvm-pauth/bin/llvm-readelf --all <build_root>/aarch64-unknown-linux-gnu/test/run-make/pauth-quicksort-rust-driver/rmake_out/main > pauth-quicksort-rust-driver.txt
     ```
+
+  * C drives the program, by providing the data and the comparison function, Rust implements the quicksort algorithm: https://github.com/jchlanda/rust/tree/v.0.1.1/tests/run-make/pauth-quicksort-c-driver. This is the mirror reflection of the above (in terms of which language is responsible for what).
 
 In order to run all the test:
 ```bash
-./x.py test --target aarch64-unknown-linux-pauthtest --force-rerun tests/run-make/c-dynamic-linker-pauth tests/codegen-llvm/pauth-extern-c-direct-indirect-call.rs tests/codegen-llvm/pauth-init-fini.rs tests/codegen-llvm/pauth-extern-c.rs tests/assembly-llvm/targets/targets-aarch64_unknown_linux_pauthtest.rs
+./x.py test --target aarch64-unknown-linux-pauthtest --force-rerun tests/run-make/pauth-quicksort-rust-driver tests/run-make/pauth-quicksort-c-driver tests/codegen-llvm/pauth-extern-c-direct-indirect-call.rs tests/codegen-llvm/pauth-init-fini.rs tests/codegen-llvm/pauth-extern-c.rs tests/assembly-llvm/targets/targets-aarch64_unknown_linux_pauthtest.rs
 ```
 
 ## Limitation
