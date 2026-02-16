@@ -1,6 +1,6 @@
 use std::os::raw::{c_int, c_void};
 
-#[link(name = "cquicksort")]
+#[link(name = "quicksort")]
 extern "C" {
     fn quickSort(
         base: *mut c_void,

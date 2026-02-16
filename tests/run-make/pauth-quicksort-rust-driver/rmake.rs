@@ -1,6 +1,8 @@
 // Test compilation flow using custom pauth-enabled toolchain and signing extern "C" function
 // pointers used from withing rust. Note that in order for the test to work the toolchain has to be
 // provided via env variable (LLVM_PAUTH), or present at `/opt/llvm-pauth`.
+// In this test rust is the driver - providing the data and the comparison function; while c -
+// provides the implementation of quicksort algorithm and is the user of  the data and comparator.
 
 //FIXME: JKB: Limit it to only only-aarch64-linux-pauthtest
 
@@ -14,7 +16,7 @@ fn main() {
         std::env::set_var("CC", clang_path);
     }
 
-    let input = "cquicksort";
+    let input = "quicksort";
     let input_name = format!("{input}.c");
     let lib_name = format!("{}{input}.{}", "lib", "so");
     cc().out_exe(&lib_name)
