@@ -2,6 +2,8 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 void swap(void *A, void *B, size_t Size) {
@@ -45,6 +47,8 @@ void quickSortRec(void *Base, int Low, int High, size_t Size,
 
 void quickSort(void *Base, size_t N, size_t Size,
                int (*Cmp)(const void *, const void *)) {
+  if (Size != sizeof(int32_t))
+    abort();
   if (N > 1)
     quickSortRec(Base, 0, (int)N - 1, Size, Cmp);
 }
