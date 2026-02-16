@@ -34,11 +34,11 @@ EXTRA_FLAGS_PAUTHTEST=""
 EXTRA_FLAGS_MUSL=""
 ```
 
-At the time of writing we only support ptrauth intrinsics, calls and returns, it's necessary to disable other functionality by applying the following patch in `<pauth-toolchain-build-scripts-root>/src/llvm`
+At the time of writing we support ptrauth intrinsics, calls and returns, as well as auth-traps it's necessary to disable other functionality by applying the following patch in `<pauth-toolchain-build-scripts-root>/src/llvm`
 
 ```diff
 diff --git a/clang/lib/Driver/ToolChains/Linux.cpp b/clang/lib/Driver/ToolChains/Linux.cpp
-index 94a9fe8b1a63..50e2027bea3f 100644
+index 94a9fe8b1a63..7ca31f855c14 100644
 --- a/clang/lib/Driver/ToolChains/Linux.cpp
 +++ b/clang/lib/Driver/ToolChains/Linux.cpp
 @@ -495,41 +495,41 @@ static void handlePAuthABI(const Driver &D, const ArgList &DriverArgs,
@@ -80,10 +80,10 @@ index 94a9fe8b1a63..50e2027bea3f 100644
 -  if (!DriverArgs.hasArg(options::OPT_faarch64_jump_table_hardening,
 -                         options::OPT_fno_aarch64_jump_table_hardening))
 -    CC1Args.push_back("-faarch64-jump-table-hardening");
-+//  if (!DriverArgs.hasArg(options::OPT_fptrauth_auth_traps,
-+//                         options::OPT_fno_ptrauth_auth_traps))
-+//    CC1Args.push_back("-fptrauth-auth-traps");
-+//
++ if (!DriverArgs.hasArg(options::OPT_fptrauth_auth_traps,
++                        options::OPT_fno_ptrauth_auth_traps))
++   CC1Args.push_back("-fptrauth-auth-traps");
++
 +//  if (!DriverArgs.hasArg(
 +//          options::OPT_fptrauth_vtable_pointer_address_discrimination,
 +//          options::OPT_fno_ptrauth_vtable_pointer_address_discrimination))
