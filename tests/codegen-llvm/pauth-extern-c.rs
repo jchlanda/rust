@@ -1,3 +1,4 @@
+// ignore-tidy-linelength
 //@ revisions: O0_PAUTH O3_PAUTH O0_NO_PAUTH O3_NO_PAUTH
 
 // FIXME: JKB: This should really be aarch64 pauthtest
@@ -42,7 +43,5 @@ extern "C" {
 }
 
 // Split each attribute check to two separate comands, so we don't hit rust's 100 line limit
-// O0_PAUTH: attributes #[[ATTR_O0_1]] = { {{.*}}ptrauth-calls
-// O0_PAUTH: {{.*}}"target-features"="{{.*}}+pauth{{.*}}"
-// O3_PAUTH: attributes #[[ATTR_O3_1]] = { {{.*}}ptrauth-calls
-// O3_PAUTH: {{.*}}"target-features"="{{.*}}+pauth{{.*}}"
+// O0_PAUTH: attributes #[[ATTR_O0_1]] = { {{.*}}ptrauth-auth-traps{{.*}}ptrauth-calls{{.*}}ptrauth-returns{{.*}}"target-features"="{{.*}}+pauth{{.*}}"
+// O3_PAUTH: attributes #[[ATTR_O3_1]] = { {{.*}}ptrauth-auth-traps{{.*}}ptrauth-calls{{.*}}ptrauth-returns{{.*}}"target-features"="{{.*}}+pauth{{.*}}"
