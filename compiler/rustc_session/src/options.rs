@@ -2545,7 +2545,7 @@ options! {
     patchable_function_entry: PatchableFunctionEntry = (PatchableFunctionEntry::default(), parse_patchable_function_entry, [TRACKED],
         "nop padding at function entry"),
     pauth: bool = (false, parse_bool, [TRACKED], "enabel patuth for llvm codegen"),
-    pauth_sign_init_fini: bool = (false, parse_bool, [TRACKED], "enable signing of init/fini array entries"),
+    pauth_disable_sign_init_fini: bool = (false, parse_bool, [TRACKED], "disable signing of init/fini array entries"),
     plt: Option<bool> = (None, parse_opt_bool, [TRACKED],
         "whether to use the PLT when calling into shared libraries;
         only has effect for PIC code on systems with ELF binaries
