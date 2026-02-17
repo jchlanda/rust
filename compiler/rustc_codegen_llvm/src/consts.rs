@@ -26,16 +26,15 @@ use crate::llvm::{self, Type, Value};
 use crate::type_of::LayoutLlvmExt;
 use crate::{base, debuginfo};
 
-fn scalar_fn_no_ptrauth_to_backend<'ll>(
+fn scalar_fn_ptrauth_to_backend<'ll>(
     cx: &CodegenCx<'ll, '_>,
     cv: InterpScalar,
     llty: &'ll Type,
 ) -> &'ll Value {
     // This function is a distilled version of ConstCodegenMethods::scalar_to_backend, implemented
     // here so that we don't have to extend the trait. It only expects pointers to functions. Its
-    // sole purpose is to use a non-pointer-authenticated function address. This is needed when
-    // such addresse is used in init or fini arrays and pointer authentication signing is
-    // disabled.
+    // sole purpose is to use a non-pointer-authenticated function address. And then decide if to
+    // sign it (using appropriate init/fini discriminator).
     let ptr = match cv {
         InterpScalar::Ptr(ptr, _size) => ptr,
         _ => panic!("Fatal error: expected Scalar::Ptr, got {:?}", cv),
@@ -47,11 +46,26 @@ fn scalar_fn_no_ptrauth_to_backend<'ll>(
         GlobalAlloc::Function { instance, .. } => {
             // FIXME: JKB: The use of get_fn here is dubious. It should really be get_fn_addr;
             // however, at the moment get_fn_addr always returns an address wrapped in
-            // ConstantPtrAuth, which is not what we want for init/fini arrays. The implementation
-            // of get_fn is identical to get_fn_addr, except that it does not sign the pointer.
-            // Ideally, there would be a non-signed version of get_fn_addr, but that would require
-            // extending the MiscCodegenMethods trait.
-            cx.get_fn(instance)
+            // ConstantPtrAuth, with default metadata. Untill the decision is made whene/how to
+            // sign, we use a get_fn plus an explicit call to llvm::LLVMRustConstPtrAuth. The
+            // implementation of get_fn is identical to get_fn_addr (modulo signing).
+            let llfn = cx.get_fn(instance);
+            if cx.sess().opts.unstable_opts.pauth_disable_sign_init_fini {
+                llfn
+            } else {
+                let ptrauth_key_asia = 0;
+                let ptrauth_init_fini_discriminator = 0xd9d4;
+                let addr_diversity = false;
+                unsafe {
+                    let authed = llvm::LLVMRustConstPtrAuth(
+                        llfn as *const _ as *mut _,
+                        ptrauth_key_asia,
+                        ptrauth_init_fini_discriminator,
+                        addr_diversity,
+                    );
+                    &*authed
+                }
+            }
         }
         _ => panic!("Fatal error: expected GlobalAlloc::Function, got {:?}", global_alloc),
     };
@@ -149,14 +163,10 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
             as u64;
 
         let address_space = cx.tcx.global_alloc(prov.alloc_id()).address_space(cx);
-        // Pauthtest function pointers stored in init/fini arrays need special handling. Decide if
-        // to sign those functions.
-        let pauth_init_fini_no_sign = is_in_init_fini
-            && cx.sess().target.env == Env::Pauthtest
-            && !cx.sess().opts.unstable_opts.pauth_sign_init_fini;
-
-        llvals.push(if pauth_init_fini_no_sign {
-            scalar_fn_no_ptrauth_to_backend(
+        // Pauthtest function pointers stored in init/fini arrays need special handling.
+        let is_pauth_init_fini = cx.sess().target.env == Env::Pauthtest && is_in_init_fini;
+        llvals.push(if is_pauth_init_fini {
+            scalar_fn_ptrauth_to_backend(
                 cx,
                 InterpScalar::from_pointer(
                     Pointer::new(prov, Size::from_bytes(ptr_offset)),
