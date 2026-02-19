@@ -22,8 +22,15 @@ pub(crate) fn target() -> Target {
         let rpath = Box::leak(
             format!("-Wl,--rpath={}/aarch64-linux-pauthtest/usr/lib", root).into_boxed_str(),
         );
+        let clang_rt_builtins = Box::leak(
+            format!(
+                "{}/lib/clang/22/lib/aarch64-unknown-linux-pauthtest/libclang_rt.builtins.a",
+                root
+            )
+            .into_boxed_str(),
+        );
 
-        vec![Cow::Borrowed(dynamic_linker), Cow::Borrowed(rpath)]
+        vec![Cow::Borrowed(dynamic_linker), Cow::Borrowed(rpath), Cow::Borrowed(clang_rt_builtins)]
     })]);
 
     Target {
