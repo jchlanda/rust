@@ -20,7 +20,7 @@ use rustc_session::config::CrateType;
 use rustc_span::{Span, Symbol, sym};
 use rustc_symbol_mangling::{mangle_internal_symbol, symbol_name_for_instance_in_crate};
 use rustc_target::callconv::PassMode;
-use rustc_target::spec::Os;
+use rustc_target::spec::{Env, Os};
 use tracing::debug;
 
 use crate::abi::FnAbiLlvmExt;
@@ -197,6 +197,23 @@ impl<'ll, 'tcx> IntrinsicCallBuilderMethods<'tcx> for Builder<'_, 'll, 'tcx> {
                     &[self.val_ty(ptr), self.type_isize()],
                     &[ptr, args[1].immediate()],
                 )
+            }
+            sym::ptrauth_sign => {
+                if tcx.sess.target.env != Env::Pauthtest {
+                    span_bug!(span, "ptrauth_sign intrinsic only available for pauthtest env");
+                }
+                let ptr = args[0].immediate();
+                let key = args[1].immediate();
+                let data = args[2].immediate();
+
+                let ptr_ty = self.val_ty(ptr);
+                assert_eq!(self.cx.type_kind(ptr_ty), TypeKind::Pointer);
+                let ptr_i64 = self.ptrtoint(ptr, self.cx.type_i64());
+
+                let signed_i64 =
+                    self.call_intrinsic("llvm.ptrauth.sign", &[], &[ptr_i64, key, data]);
+
+                self.inttoptr(signed_i64, ptr_ty)
             }
             sym::autodiff => {
                 codegen_autodiff(self, tcx, instance, args, result);

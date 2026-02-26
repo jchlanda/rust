@@ -3476,3 +3476,13 @@ pub unsafe fn va_arg<T: VaArgSafe>(ap: &mut VaListImpl<'_>) -> T;
 #[rustc_intrinsic]
 #[rustc_nounwind]
 pub unsafe fn va_end(ap: &mut VaListImpl<'_>);
+
+/// Produce a signed pointer for the given raw pointer without applying any authentication or extra
+/// treatment. This operation is not required to have the same behavior on a null pointer that the
+/// language implementation would. This is a treacherous operation that can easily result in signing
+/// oracles. Programs should use it seldom and carefully.
+/// ptrauth_sign resolves to llvm.ptrauth.sign: https://llvm.org/docs/PointerAuth.html#llvm-ptrauth-sign
+#[cfg(target_env = "pauthtest")]
+#[rustc_intrinsic]
+#[rustc_nounwind]
+pub unsafe fn ptrauth_sign<T>(ptr: *const T, key: u32, data: u64) -> *const T;
