@@ -27,11 +27,12 @@ use crate::abi::FnAbiLlvmExt;
 use crate::builder::Builder;
 use crate::builder::autodiff::{adjust_activity_to_abi, generate_enzyme_call};
 use crate::builder::gpu_offload::TgtOffloadEntry;
+use crate::common::pauth_fn_attrs;
 use crate::context::CodegenCx;
 use crate::errors::{
     AutoDiffWithoutEnable, AutoDiffWithoutLto, OffloadWithoutEnable, OffloadWithoutFatLTO,
 };
-use crate::llvm::{self, Metadata, Type, Value};
+use crate::llvm::{self, Attribute, AttributePlace, Metadata, Type, Value};
 use crate::type_of::LayoutLlvmExt;
 use crate::va_arg::emit_va_arg;
 
@@ -1145,6 +1146,13 @@ fn get_rust_try_fn<'a, 'll, 'tcx>(
         ExternAbi::Rust,
     ));
     let rust_try = gen_fn(cx, "__rust_try", rust_fn_sig, codegen);
+    if cx.sess().target.env == Env::Pauthtest {
+        let attrs: Vec<&Attribute> =
+            pauth_fn_attrs().iter().map(|name| llvm::CreateAttrString(cx.llcx, name)).collect();
+        let (_ty, rust_try_fn) = rust_try;
+        crate::attributes::apply_to_llfn(rust_try_fn, AttributePlace::Function, &attrs);
+    }
+
     cx.rust_try_fn.set(Some(rust_try));
     rust_try
 }

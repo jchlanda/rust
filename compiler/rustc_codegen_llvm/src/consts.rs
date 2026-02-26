@@ -20,7 +20,7 @@ use rustc_span::Symbol;
 use rustc_target::spec::{Arch, Env};
 use tracing::{debug, instrument, trace};
 
-use crate::common::{CodegenCx, compute_pauth_for_call};
+use crate::common::{CodegenCx, compute_pauth_metadata_for_call};
 use crate::errors::SymbolAlreadyDefined;
 use crate::llvm::{self, Type, Value};
 use crate::type_of::LayoutLlvmExt;
@@ -262,7 +262,7 @@ fn check_and_apply_linkage<'ll, 'tcx>(
                 {
                     declared_function
                 } else {
-                    let (key, discriminator, addr_diversity) = compute_pauth_for_call();
+                    let (key, discriminator, addr_diversity) = compute_pauth_metadata_for_call();
                     let straight_signed = unsafe {
                         let authed = llvm::LLVMRustConstPtrAuth(
                             cx.const_bitcast(declared_function, llty) as *const _ as *mut _,
