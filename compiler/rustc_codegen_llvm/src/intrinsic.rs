@@ -29,15 +29,24 @@ use tracing::debug;
 use crate::abi::FnAbiLlvmExt;
 use crate::builder::Builder;
 use crate::builder::autodiff::{adjust_activity_to_abi, generate_enzyme_call};
+<<<<<<< HEAD
 use crate::builder::gpu_offload::{
     OffloadKernelDims, gen_call_handling, gen_define_handling, register_offload,
 };
+=======
+use crate::builder::gpu_offload::TgtOffloadEntry;
+use crate::common::pauth_fn_attrs;
+>>>>>>> 72932b2567c (Unify handling of ptrauth-* attributes)
 use crate::context::CodegenCx;
 use crate::declare::declare_raw_fn;
 use crate::errors::{
     AutoDiffWithoutEnable, AutoDiffWithoutLto, OffloadWithoutEnable, OffloadWithoutFatLTO,
 };
+<<<<<<< HEAD
 use crate::llvm::{self, Type, Value};
+=======
+use crate::llvm::{self, Attribute, AttributePlace, Metadata, Type, Value};
+>>>>>>> 72932b2567c (Unify handling of ptrauth-* attributes)
 use crate::type_of::LayoutLlvmExt;
 use crate::va_arg::emit_va_arg;
 
@@ -1303,6 +1312,13 @@ fn get_rust_try_fn<'a, 'll, 'tcx>(
         ExternAbi::Rust,
     ));
     let rust_try = gen_fn(cx, "__rust_try", rust_fn_sig, codegen);
+    if cx.sess().target.env == Env::Pauthtest {
+        let attrs: Vec<&Attribute> =
+            pauth_fn_attrs().iter().map(|name| llvm::CreateAttrString(cx.llcx, name)).collect();
+        let (_ty, rust_try_fn) = rust_try;
+        crate::attributes::apply_to_llfn(rust_try_fn, AttributePlace::Function, &attrs);
+    }
+
     cx.rust_try_fn.set(Some(rust_try));
     rust_try
 }

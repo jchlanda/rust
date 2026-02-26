@@ -696,7 +696,7 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
     pub(crate) fn add_ptrauth_sign_personality_flag(&self) {
         llvm::add_module_flag_u32(
             self.llmod,
-            llvm::ModuleFlagMergeBehavior::Override,
+            llvm::ModuleFlagMergeBehavior::Min,
             "ptrauth-sign-personality",
             1,
         );
@@ -849,7 +849,7 @@ impl<'ll, 'tcx> MiscCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
     fn get_fn_addr(&self, instance: Instance<'tcx>) -> &'ll Value {
         let llfn = get_fn(self, instance);
 
-        common::maybe_sign_fn_ptr(self, instance, self.llcx(), llfn)
+        common::maybe_sign_fn_ptr(self, instance, llfn)
     }
 
     fn eh_personality(&self) -> &'ll Value {

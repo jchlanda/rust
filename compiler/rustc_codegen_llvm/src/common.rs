@@ -19,35 +19,25 @@ use rustc_session::cstore::DllImport;
 use rustc_target::spec::Env;
 use tracing::debug;
 
-use crate::attributes;
 use crate::consts::const_alloc_to_llvm;
 pub(crate) use crate::context::CodegenCx;
 use crate::context::{GenericCx, SCx};
 use crate::llvm::{self, BasicBlock, ConstantInt, FALSE, TRUE, ToLlvmBool, Type, Value};
 
-// Compute key, discriminator and address diversity.
+// Compute key, discriminator and address diversity values.
 // FIXME: JKB: For now just a placeholder.
-pub(crate) fn compute_pauth_for_call() -> (u32, u64, bool) {
+pub(crate) fn compute_pauth_metadata_for_call() -> (u32, u64, bool) {
     (0u32, 0u64, false)
 }
 
-pub(crate) fn apply_ptrauth_fn_attributes<'ll>(llcx: &'ll llvm::Context, llfn: &'ll llvm::Value) {
-    // Add ptrauth-* attributes.
-    let attrs = ["ptrauth-calls", "ptrauth-returns", "ptrauth-auth-traps"];
-
-    for &attr in &attrs {
-        attributes::apply_to_llfn(
-            llfn,
-            llvm::AttributePlace::Function,
-            &[llvm::CreateAttrString(llcx, attr)],
-        );
-    }
+#[inline]
+pub(crate) fn pauth_fn_attrs() -> &'static [&'static str] {
+    &["ptrauth-calls", "ptrauth-returns", "ptrauth-auth-traps"]
 }
 
 pub(crate) fn maybe_sign_fn_ptr<'ll, 'tcx>(
     cx: &CodegenCx<'ll, '_>,
     instance: Instance<'tcx>,
-    llcx: &'ll llvm::Context,
     llfn: &'ll llvm::Value,
 ) -> &'ll llvm::Value {
     if cx.sess().target.env != Env::Pauthtest {
@@ -71,13 +61,11 @@ pub(crate) fn maybe_sign_fn_ptr<'ll, 'tcx>(
     if Some(def_id) == cx.tcx.lang_items().eh_personality() {
         // FIXME: JKB: Should personality functions be signed with address diversity?
         // And special discriminator?
-        // self.ptrauth_sign_personality.set(true);
+        cx.ptrauth_sign_personality.set(true);
         return llfn;
     }
 
-    apply_ptrauth_fn_attributes(llcx, llfn);
-
-    let (key, discriminator, addr_diversity) = compute_pauth_for_call();
+    let (key, discriminator, addr_diversity) = compute_pauth_metadata_for_call();
     unsafe {
         let authed = llvm::LLVMRustConstPtrAuth(
             llfn as *const _ as *mut _,

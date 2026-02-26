@@ -31,6 +31,7 @@ use super::ModuleLlvm;
 use crate::attributes;
 use crate::builder::Builder;
 use crate::builder::gpu_offload::OffloadGlobals;
+use crate::common::pauth_fn_attrs;
 use crate::context::CodegenCx;
 use crate::llvm::{self, Value};
 
@@ -124,7 +125,14 @@ pub(crate) fn compile_codegen_unit(
             if let Some(entry) =
                 maybe_create_entry_wrapper::<Builder<'_, '_, '_>>(&cx, cx.codegen_unit)
             {
-                let attrs = attributes::sanitize_attrs(&cx, tcx, SanitizerFnAttrs::default());
+                let mut attrs = attributes::sanitize_attrs(&cx, tcx, SanitizerFnAttrs::default());
+                // For pauthtest make sure that the ptrauth-* attributes are also attached to the
+                // entry wrapper.
+                if cx.sess().target.env == Env::Pauthtest {
+                    for &ptrauth_attr in pauth_fn_attrs() {
+                        attrs.push(llvm::CreateAttrString(cx.llcx, ptrauth_attr));
+                    }
+                }
                 attributes::apply_to_llfn(entry, llvm::AttributePlace::Function, &attrs);
             }
 
@@ -141,11 +149,7 @@ pub(crate) fn compile_codegen_unit(
                 cx.add_objc_module_flags();
             }
 
-            //if cx.sess().target.env == Env::Pauthtest && cx.ptrauth_sign_personality.get()
-            if cx.sess().opts.unstable_opts.pauth
-                && cx.sess().target.env == Env::Pauthtest
-                && cx.ptrauth_sign_personality.get()
-            {
+            if cx.sess().target.env == Env::Pauthtest && cx.ptrauth_sign_personality.get() {
                 cx.add_ptrauth_sign_personality_flag();
             }
 
