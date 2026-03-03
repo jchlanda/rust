@@ -686,7 +686,7 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
     pub(crate) fn add_ptrauth_sign_personality_flag(&self) {
         llvm::add_module_flag_u32(
             self.llmod,
-            llvm::ModuleFlagMergeBehavior::Min,
+            llvm::ModuleFlagMergeBehavior::Max,
             "ptrauth-sign-personality",
             1,
         );
