@@ -7,6 +7,7 @@ use std::collections::HashSet;
 use std::env::split_paths;
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::{env, fs, iter};
 
 use build_helper::exit;
@@ -2103,7 +2104,12 @@ Please disable assertions with `rust.debug-assertions = false`.
                 "-Lnative={}",
                 builder.test_helpers_out(test_compiler.host).display()
             ));
-            targetflags.push(format!("-Lnative={}", builder.test_helpers_out(target).display()));
+            let target_helpers = builder.test_helpers_out(target);
+            targetflags.push(format!("-Lnative={}", target_helpers.display()));
+            if target.triple.contains("pauthtest") {
+                // Embed rpath to the shared object
+                targetflags.push(format!("-Clink-arg=-Wl,-rpath,{}", target_helpers.display()));
+            }
         }
 
         for flag in hostflags {
@@ -3691,6 +3697,33 @@ impl Step for TestHelpers {
         };
         let dst = builder.test_helpers_out(target);
         let src = builder.src.join("tests/auxiliary/rust_test_helpers.c");
+        if target.triple.contains("pauthtest") {
+            let output = dst.join("librust_test_helpers.so");
+            if up_to_date(&src, &output) {
+                return;
+            }
+
+            let root = std::env::var("LLVM_PAUTH").unwrap_or_else(|_| "/opt/llvm-pauth".into());
+            let clang = format!("{root}/bin/clang");
+
+            let status = Command::new(&clang)
+                .arg("-target")
+                .arg(&target.triple)
+                .arg("-fPIC")
+                .arg("-shared")
+                .arg("-O0")
+                .arg("-o")
+                .arg(&output)
+                .arg(&src)
+                .status()
+                .expect("Failed to run clang for pauthtest .so");
+
+            if !status.success() {
+                panic!("Linking of pauthtest .so failed");
+            }
+
+            return;
+        }
         if up_to_date(&src, &dst.join("librust_test_helpers.a")) {
             return;
         }
