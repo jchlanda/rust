@@ -3481,7 +3481,7 @@ pub unsafe fn va_end(ap: &mut VaListImpl<'_>);
 /// treatment. This operation is not required to have the same behavior on a null pointer that the
 /// language implementation would. This is a treacherous operation that can easily result in signing
 /// oracles. Programs should use it seldom and carefully.
-/// ptrauth_sign resolves to llvm.ptrauth.sign: https://llvm.org/docs/PointerAuth.html#llvm-ptrauth-sign
+/// ptrauth_sign resolves to llvm.ptrauth.sign: <https://llvm.org/docs/PointerAuth.html#llvm-ptrauth-sign>
 #[cfg(target_env = "pauthtest")]
 #[rustc_intrinsic]
 #[rustc_nounwind]
