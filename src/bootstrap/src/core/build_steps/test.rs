@@ -3699,6 +3699,7 @@ impl Step for TestHelpers {
         let src = builder.src.join("tests/auxiliary/rust_test_helpers.c");
         if target.triple.contains("pauthtest") {
             let output = dst.join("librust_test_helpers.so");
+            t!(fs::create_dir_all(&dst));
             if up_to_date(&src, &output) {
                 return;
             }
