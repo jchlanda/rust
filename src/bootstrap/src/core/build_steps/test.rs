@@ -3818,10 +3818,34 @@ impl Step for TestHelpers {
         };
         let dst = builder.test_helpers_out(target);
         let src = builder.src.join("tests/auxiliary/rust_test_helpers.c");
+        let _guard = builder.msg_unstaged(Kind::Build, "test helpers", target);
+        t!(fs::create_dir_all(&dst));
+
+        if !up_to_date(&src, &dst.join("librust_test_helpers.a")) {
+            let mut cfg = cc::Build::new();
+
+            // We may have found various cross-compilers a little differently due to our
+            // extra configuration, so inform cc of these compilers. Note, though, that
+            // on MSVC we still need cc's detection of env vars (ugh).
+            if !target.is_msvc() {
+                if let Some(ar) = builder.ar(target) {
+                    cfg.archiver(ar);
+                }
+                cfg.compiler(builder.cc(target));
+            }
+            cfg.cargo_metadata(false)
+                .out_dir(&dst)
+                .target(&target.triple)
+                .host(&builder.config.host_target.triple)
+                .opt_level(0)
+                .warnings(false)
+                .debug(false)
+                .file(builder.src.join("tests/auxiliary/rust_test_helpers.c"))
+                .compile("rust_test_helpers");
+        }
         if target.triple.contains("pauthtest") {
-            let output = dst.join("librust_test_helpers.so");
-            t!(fs::create_dir_all(&dst));
-            if up_to_date(&src, &output) {
+            let so = dst.join("librust_test_helpers.so");
+            if up_to_date(&src, &so) {
                 return;
             }
 
@@ -3833,9 +3857,9 @@ impl Step for TestHelpers {
                 .arg(&target.triple)
                 .arg("-fPIC")
                 .arg("-shared")
-                .arg("-O0")
+                .arg("-O0") // Use O0 to match what static library is compiled at.
                 .arg("-o")
-                .arg(&output)
+                .arg(&so)
                 .arg(&src)
                 .status()
                 .expect("Failed to run clang for pauthtest .so");
@@ -3843,35 +3867,7 @@ impl Step for TestHelpers {
             if !status.success() {
                 panic!("Linking of pauthtest .so failed");
             }
-
-            return;
         }
-        if up_to_date(&src, &dst.join("librust_test_helpers.a")) {
-            return;
-        }
-
-        let _guard = builder.msg_unstaged(Kind::Build, "test helpers", target);
-        t!(fs::create_dir_all(&dst));
-        let mut cfg = cc::Build::new();
-
-        // We may have found various cross-compilers a little differently due to our
-        // extra configuration, so inform cc of these compilers. Note, though, that
-        // on MSVC we still need cc's detection of env vars (ugh).
-        if !target.is_msvc() {
-            if let Some(ar) = builder.ar(target) {
-                cfg.archiver(ar);
-            }
-            cfg.compiler(builder.cc(target));
-        }
-        cfg.cargo_metadata(false)
-            .out_dir(&dst)
-            .target(&target.triple)
-            .host(&builder.config.host_target.triple)
-            .opt_level(0)
-            .warnings(false)
-            .debug(false)
-            .file(builder.src.join("tests/auxiliary/rust_test_helpers.c"))
-            .compile("rust_test_helpers");
     }
 }
 
