@@ -1,7 +1,7 @@
+//@ only-aarch64-unknown-linux-pauthtest
 //@ compile-flags: --target=aarch64-unknown-linux-pauthtest -C opt-level=3
 // Check that we correctly generate @llvm.ptrauth.sign(i64 %ptr, i32 imm_key, i64 %data) intrinsic.
 
-// FIXME: JKB: This should really be aarch64 pauthtest
 //@ needs-llvm-components: aarch64
 
 #![crate_type = "lib"]

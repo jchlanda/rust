@@ -4,7 +4,7 @@
 // In this test c is the driver - providing the data and the comparison function; while rust -
 // provides the implementation of quicksort algorithm and is the user of  the data and comparator.
 
-//FIXME: JKB: Limit it to only only-aarch64-linux-pauthtest
+//@ only-aarch64-unknown-linux-pauthtest
 
 use run_make_support::{cc, rfs, run, run_fail, rustc};
 

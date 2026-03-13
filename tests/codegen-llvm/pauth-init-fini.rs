@@ -1,7 +1,7 @@
 // ignore-tidy-linelength
+//@ only-aarch64-unknown-linux-pauthtest
 //@ revisions: O0_PAUTH O3_PAUTH O0_PAUTH_DISABLE_SIGN_INIT_FINI O3_PAUTH_DISABLE_SIGN_INIT_FINI
 
-// FIXME: JKB: This should really be aarch64 pauthtest
 //@ [O0_PAUTH] needs-llvm-components: aarch64
 //@ [O0_PAUTH] compile-flags: --target=aarch64-unknown-linux-pauthtest -C opt-level=0
 //@ [O3_PAUTH] needs-llvm-components: aarch64
