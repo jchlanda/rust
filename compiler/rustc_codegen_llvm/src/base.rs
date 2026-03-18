@@ -149,7 +149,8 @@ pub(crate) fn compile_codegen_unit(
                 cx.add_objc_module_flags();
             }
 
-            if cx.sess().target.env == Env::Pauthtest && cx.ptrauth_sign_personality.get() {
+            if cx.sess().target.env == Env::Pauthtest {
+                cx.add_ptrauth_elf_got_flag();
                 cx.add_ptrauth_sign_personality_flag();
             }
 

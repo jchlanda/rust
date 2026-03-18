@@ -59,9 +59,6 @@ pub(crate) fn maybe_sign_fn_ptr<'ll, 'tcx>(
         return llfn;
     }
     if Some(def_id) == cx.tcx.lang_items().eh_personality() {
-        // FIXME: JKB: Should personality functions be signed with address diversity?
-        // And special discriminator?
-        cx.ptrauth_sign_personality.set(true);
         return llfn;
     }
 

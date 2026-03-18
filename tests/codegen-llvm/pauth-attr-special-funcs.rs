@@ -18,3 +18,6 @@ fn main() {
         panic!("BOOM");
     });
 }
+
+// CHECK: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// CHECK: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}

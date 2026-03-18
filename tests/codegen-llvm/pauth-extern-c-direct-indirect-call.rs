@@ -78,3 +78,8 @@ fn main() {
     test_indirect_call();
     test_direct_call();
 }
+
+// O0_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O0_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}
+// O3_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O3_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}

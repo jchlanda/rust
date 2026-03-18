@@ -45,3 +45,13 @@ extern "C" {
 // Split each attribute check to two separate comands, so we don't hit rust's 100 line limit
 // O0_PAUTH: attributes #[[ATTR_O0_1]] = { {{.*}}ptrauth-auth-traps{{.*}}ptrauth-calls{{.*}}ptrauth-returns{{.*}}"target-features"="{{.*}}+pauth{{.*}}"
 // O3_PAUTH: attributes #[[ATTR_O3_1]] = { {{.*}}ptrauth-auth-traps{{.*}}ptrauth-calls{{.*}}ptrauth-returns{{.*}}"target-features"="{{.*}}+pauth{{.*}}"
+
+// O0_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O0_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}
+// O3_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O3_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}
+
+// O0_NO_PAUTH-NOT: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O0_NO_PAUTH-NOT: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}
+// O3_NO_PAUTH-NOT: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O3_NO_PAUTH-NOT: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}

@@ -16,3 +16,6 @@
 pub unsafe fn test_ptrauth_sign(ptr: *const u8) -> *const u8 {
     core::intrinsics::ptrauth_sign(ptr, 1, 42)
 }
+
+// CHECK: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// CHECK: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}

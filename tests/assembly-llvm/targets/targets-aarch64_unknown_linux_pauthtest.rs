@@ -27,12 +27,23 @@ pub fn call_add(x: i32) -> i32 {
 }
 
 // CHECK-LABEL: call_through:
-// CHECK: mov x2, x0
-// CHECK: mov w0, w1
-// CHECK: mov w1, #1
-// CHECK: braaz x2
+// CHECK:       mov     [[PTR:x[0-9]+]], x0
+// CHECK:       mov     w0, w1
+// CHECK:       mov     w1, #1
+// CHECK:       braaz   [[PTR]]
 
 // CHECK-LABEL: call_add:
-// CHECK: adrp    x16, :got:add
-// CHECK: ldr x16, [x16, :got_lo12:add]
-// CHECK: paciza  x16
+// CHECK:       adrp    [[GOT_REG:x[0-9]+]], :got_auth:add
+// CHECK:       add     [[GOT_REG]], [[GOT_REG]], :got_auth_lo12:add
+// CHECK:       ldr     [[FN_REG:x[0-9]+]], [[[GOT_REG]]]
+// CHECK:       autia   [[FN_REG]], [[GOT_REG]]
+// CHECK:       mov     [[TMP_REG:x[0-9]+]], [[FN_REG]]
+// CHECK:       xpaci   [[TMP_REG]]
+// CHECK:       cmp     [[FN_REG]], [[TMP_REG]]
+// CHECK:       b.eq    [[SUCCESS:\.Lauth_success_0]]
+// CHECK:       brk     #0xc470
+// CHECK:       [[SUCCESS]]:
+// CHECK:       paciza  [[FN_REG]]
+// CHECK:       mov     w1, w0
+// CHECK:       mov     x0, [[FN_REG]]
+// CHECK:       b       call_through
