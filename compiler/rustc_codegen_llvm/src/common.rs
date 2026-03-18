@@ -24,12 +24,6 @@ pub(crate) use crate::context::CodegenCx;
 use crate::context::{GenericCx, SCx};
 use crate::llvm::{self, BasicBlock, ConstantInt, FALSE, TRUE, ToLlvmBool, Type, Value};
 
-// Compute key, discriminator and address diversity values.
-// FIXME: JKB: For now just a placeholder.
-pub(crate) fn compute_pauth_metadata_for_call() -> (u32, u64, bool) {
-    (0u32, 0u64, false)
-}
-
 #[inline]
 pub(crate) fn pauth_fn_attrs() -> &'static [&'static str] {
     &["ptrauth-calls", "ptrauth-returns", "ptrauth-auth-traps"]
@@ -39,6 +33,7 @@ pub(crate) fn maybe_sign_fn_ptr<'ll, 'tcx>(
     cx: &CodegenCx<'ll, '_>,
     instance: Instance<'tcx>,
     llfn: &'ll llvm::Value,
+    pac: PacMetadata,
 ) -> &'ll llvm::Value {
     if cx.sess().target.env != Env::Pauthtest {
         return llfn;
@@ -62,13 +57,21 @@ pub(crate) fn maybe_sign_fn_ptr<'ll, 'tcx>(
         return llfn;
     }
 
-    let (key, discriminator, addr_diversity) = compute_pauth_metadata_for_call();
+    let addr_diversity: &'ll llvm::Value = match pac.addr_diversity {
+        AddressDiversity::None => cx.const_null(cx.val_ty(llfn)),
+        AddressDiversity::Real => llfn,
+        AddressDiversity::Synthetic(val) => {
+            let llval = cx.const_u64(val);
+            let llty = cx.val_ty(llfn);
+            unsafe { llvm::LLVMConstIntToPtr(llval, llty) }
+        }
+    };
     unsafe {
         let authed = llvm::LLVMRustConstPtrAuth(
             llfn as *const _ as *mut _,
-            key,
-            discriminator,
-            addr_diversity,
+            pac.key,
+            pac.disc,
+            addr_diversity as *const _ as *mut _,
         );
         &*authed
     }
@@ -371,7 +374,14 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
                             value
                         }
                     }
-                    GlobalAlloc::Function { instance, .. } => self.get_fn_addr(instance),
+                    GlobalAlloc::Function { instance, .. } => self.get_fn_addr(
+                        instance,
+                        Some(PacMetadata {
+                            key: 0,
+                            disc: 0,
+                            addr_diversity: AddressDiversity::None,
+                        }),
+                    ),
                     GlobalAlloc::VTable(ty, dyn_ty) => {
                         let alloc = self
                             .tcx

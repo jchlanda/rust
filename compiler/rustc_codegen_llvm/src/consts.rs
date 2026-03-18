@@ -20,7 +20,7 @@ use rustc_span::Symbol;
 use rustc_target::spec::{Arch, Env};
 use tracing::{debug, instrument, trace};
 
-use crate::common::{CodegenCx, compute_pauth_metadata_for_call};
+use crate::common::CodegenCx;
 use crate::errors::SymbolAlreadyDefined;
 use crate::llvm::{self, Type, Value};
 use crate::type_of::LayoutLlvmExt;
@@ -31,10 +31,10 @@ fn scalar_fn_ptrauth_to_backend<'ll>(
     cv: InterpScalar,
     llty: &'ll Type,
 ) -> &'ll Value {
-    // This function is a distilled version of ConstCodegenMethods::scalar_to_backend, implemented
-    // here so that we don't have to extend the trait. It only expects pointers to functions. Its
-    // sole purpose is to use a non-pointer-authenticated function address. And then decide if to
-    // sign it (using appropriate init/fini discriminator).
+    // NOTE: This function is a distilled version of ConstCodegenMethods::scalar_to_backend,
+    // implemented here so that we don't have to extend the trait. It only expects pointers to
+    // functions. Its sole purpose is to use a non-pointer-authenticated function address. And then
+    // decide if to sign it (using appropriate init/fini discriminator).
     let ptr = match cv {
         InterpScalar::Ptr(ptr, _size) => ptr,
         _ => panic!("Fatal error: expected Scalar::Ptr, got {:?}", cv),
@@ -44,28 +44,24 @@ fn scalar_fn_ptrauth_to_backend<'ll>(
     let global_alloc = cx.tcx.global_alloc(prov.alloc_id());
     let base_addr = match global_alloc {
         GlobalAlloc::Function { instance, .. } => {
-            // FIXME: JKB: The use of get_fn here is dubious. It should really be get_fn_addr;
-            // however, at the moment get_fn_addr always returns an address wrapped in
-            // ConstantPtrAuth, with default metadata. Untill the decision is made whene/how to
-            // sign, we use a get_fn plus an explicit call to llvm::LLVMRustConstPtrAuth. The
-            // implementation of get_fn is identical to get_fn_addr (modulo signing).
-            let llfn = cx.get_fn(instance);
-            if cx.sess().opts.unstable_opts.pauth_disable_sign_init_fini {
-                llfn
-            } else {
-                let ptrauth_key_asia = 0;
-                let ptrauth_init_fini_discriminator = 0xd9d4;
-                let addr_diversity = false;
-                unsafe {
-                    let authed = llvm::LLVMRustConstPtrAuth(
-                        llfn as *const _ as *mut _,
-                        ptrauth_key_asia,
-                        ptrauth_init_fini_discriminator,
-                        addr_diversity,
-                    );
-                    &*authed
-                }
-            }
+            let metadata = Some(PacMetadata {
+                key: 0,
+                // The value is ptrauth_string_discriminator("init_fini").
+                disc: 0xd9d4,
+                // Decide if to use address diversity based on the flag.
+                addr_diversity: if cx
+                    .sess()
+                    .opts
+                    .unstable_opts
+                    .pauth_disable_init_fini_addr_discriminator
+                {
+                    AddressDiversity::None
+                } else {
+                    AddressDiversity::Synthetic(1)
+                },
+            });
+
+            cx.get_fn_addr(instance, metadata)
         }
         _ => panic!("Fatal error: expected GlobalAlloc::Function, got {:?}", global_alloc),
     };
@@ -262,8 +258,11 @@ fn check_and_apply_linkage<'ll, 'tcx>(
                 {
                     declared_function
                 } else {
-                    let (key, discriminator, addr_diversity) = compute_pauth_metadata_for_call();
-                    let straight_signed = unsafe {
+                    let key: u32 = 0;
+                    let discriminator: u64 = 0;
+                    let addr_diversity = std::ptr::null_mut();
+
+                    let declared_function_signed = unsafe {
                         let authed = llvm::LLVMRustConstPtrAuth(
                             cx.const_bitcast(declared_function, llty) as *const _ as *mut _,
                             key,
@@ -274,7 +273,7 @@ fn check_and_apply_linkage<'ll, 'tcx>(
                     };
                     llvm::set_linkage(declared_function, base::linkage_to_llvm(linkage));
                     needs_link_adj = false;
-                    straight_signed
+                    declared_function_signed
                 }
             } else {
                 cx.declare_global(sym, cx.type_i8())

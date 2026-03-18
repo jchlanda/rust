@@ -1869,7 +1869,7 @@ extern "C" void LLVMRustSetNoSanitizeHWAddress(LLVMValueRef Global) {
 
 extern "C" LLVMValueRef LLVMRustConstPtrAuth(LLVMValueRef Ptr, uint32_t Key,
                                              uint64_t Disc,
-                                             bool AddrDiversity) {
+                                             LLVMValueRef AddrDiversity) {
   auto *V = unwrap<Value>(Ptr);
   auto *C = dyn_cast<Constant>(V);
   if (!C)
@@ -1883,9 +1883,12 @@ extern "C" LLVMValueRef LLVMRustConstPtrAuth(LLVMValueRef Ptr, uint32_t Key,
   auto *KeyC = ConstantInt::get(Type::getInt32Ty(Ctx), Key);
   auto *DiscC = ConstantInt::get(Type::getInt64Ty(Ctx), Disc);
   auto *PTy = cast<PointerType>(C->getType());
-  auto *NullAD = ConstantPointerNull::get(PTy);
+  Constant *AD =
+      AddrDiversity ? dyn_cast<Constant>(unwrap<Value>(AddrDiversity))
+                    : ConstantPointerNull::get(cast<PointerType>(C->getType()));
+  assert(AD && "Failed to get Address Diversity");
 
-  return wrap(ConstantPtrAuth::get(C, KeyC, DiscC, NullAD));
+  return wrap(ConstantPtrAuth::get(C, KeyC, DiscC, AD));
 }
 
 // Statically assert that the fixed metadata kind IDs declared in

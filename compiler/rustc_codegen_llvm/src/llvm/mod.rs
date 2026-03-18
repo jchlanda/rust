@@ -473,6 +473,6 @@ unsafe extern "C" {
         Fn: *mut Value,
         Key: u32,
         Disc: u64,
-        AddrDiversity: bool,
+        AddrDiversity: *mut Value,
     ) -> *mut Value;
 }

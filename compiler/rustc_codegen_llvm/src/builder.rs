@@ -32,7 +32,7 @@ use tracing::{debug, instrument};
 
 use crate::abi::FnAbiLlvmExt;
 use crate::attributes;
-use crate::common::{Funclet, compute_pauth_metadata_for_call};
+use crate::common::Funclet;
 use crate::context::{CodegenCx, FullCx, GenericCx, SCx};
 use crate::llvm::{
     self, AtomicOrdering, AtomicRmwBinOp, BasicBlock, FromGeneric, GEPNoWrapFlags, Metadata, TRUE,
@@ -2017,7 +2017,8 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
             llvm::LLVMRustRequiresIndirectCall(llfn, args.as_ptr(), args.len() as c_uint)
         };
 
-        let (key, discriminator, _) = compute_pauth_metadata_for_call();
+        let key: u32 = 0;
+        let discriminator: u64 = 0;
         Some(llvm::OperandBundleBox::new(
             "ptrauth",
             &[self.const_u32(key), self.const_u64(discriminator)],

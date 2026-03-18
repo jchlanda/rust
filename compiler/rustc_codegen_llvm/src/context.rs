@@ -855,10 +855,12 @@ impl<'ll, 'tcx> MiscCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
         get_fn(self, instance)
     }
 
-    fn get_fn_addr(&self, instance: Instance<'tcx>) -> &'ll Value {
+    fn get_fn_addr(&self, instance: Instance<'tcx>, pac: Option<PacMetadata>) -> &'ll Value {
         let llfn = get_fn(self, instance);
-
-        common::maybe_sign_fn_ptr(self, instance, llfn)
+        match pac {
+            Some(pac) => common::maybe_sign_fn_ptr(self, instance, llfn, pac),
+            None => llfn,
+        }
     }
 
     fn eh_personality(&self) -> &'ll Value {
@@ -900,13 +902,16 @@ impl<'ll, 'tcx> MiscCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
 
         let tcx = self.tcx;
         let llfn = match tcx.lang_items().eh_personality() {
-            Some(def_id) if name.is_none() => self.get_fn_addr(ty::Instance::expect_resolve(
-                tcx,
-                self.typing_env(),
-                def_id,
-                ty::List::empty(),
-                DUMMY_SP,
-            )),
+            Some(def_id) if name.is_none() => self.get_fn_addr(
+                ty::Instance::expect_resolve(
+                    tcx,
+                    self.typing_env(),
+                    def_id,
+                    ty::List::empty(),
+                    DUMMY_SP,
+                ),
+                Some(PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }),
+            ),
             _ => {
                 let name = name.unwrap_or("rust_eh_personality");
                 if let Some(llfn) = self.get_declared_value(name) {
