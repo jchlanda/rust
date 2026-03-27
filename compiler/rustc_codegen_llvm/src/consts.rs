@@ -193,7 +193,7 @@ fn check_and_apply_linkage<'ll, 'tcx>(
     if let Some(linkage) = attrs.import_linkage {
         debug!("get_static: sym={} linkage={:?}", sym, linkage);
 
-        let mut needs_link_adj = true;
+        let mut should_sign = false;
         // Declare a symbol `foo`. If `foo` is an extern_weak symbol, we declare
         // an extern_weak function, otherwise a global with the desired linkage.
         let g1 = if matches!(attrs.import_linkage, Some(Linkage::ExternalWeak)) {
@@ -207,39 +207,20 @@ fn check_and_apply_linkage<'ll, 'tcx>(
             {
                 let fn_sig = sig.with(*header);
                 let fn_abi = cx.fn_abi_of_fn_ptr(fn_sig, ty::List::empty());
-
-                let declared_function = cx.declare_fn(sym, &fn_abi, None);
-                if cx.sess().target.env != Env::Pauthtest
-                    || !matches!(fn_sig.abi(), ExternAbi::C { .. })
+                // Decide if the initilizer needs to be signed
+                if cx.sess().target.env == Env::Pauthtest
+                    && matches!(fn_sig.abi(), ExternAbi::C { .. })
                 {
-                    declared_function
-                } else {
-                    let key: u32 = 0;
-                    let discriminator: u64 = 0;
-                    let addr_diversity = std::ptr::null_mut();
-
-                    let declared_function_signed = unsafe {
-                        let authed = llvm::LLVMRustConstPtrAuth(
-                            cx.const_bitcast(declared_function, llty) as *const _ as *mut _,
-                            key,
-                            discriminator,
-                            addr_diversity,
-                        );
-                        &*authed
-                    };
-                    llvm::set_linkage(declared_function, base::linkage_to_llvm(linkage));
-                    needs_link_adj = false;
-                    declared_function_signed
+                    should_sign = true;
                 }
+                cx.declare_fn(sym, &fn_abi, None)
             } else {
                 cx.declare_global(sym, cx.type_i8())
             }
         } else {
             cx.declare_global(sym, cx.type_i8())
         };
-        if needs_link_adj {
-            llvm::set_linkage(g1, base::linkage_to_llvm(linkage));
-        }
+        llvm::set_linkage(g1, base::linkage_to_llvm(linkage));
 
         // Normally this is done in `get_static_inner`, but when as we generate an internal global,
         // it will apply the dso_local to the internal global instead, so do it here, too.
@@ -260,7 +241,27 @@ fn check_and_apply_linkage<'ll, 'tcx>(
             })
         });
         llvm::set_linkage(g2, llvm::Linkage::InternalLinkage);
-        llvm::set_initializer(g2, g1);
+
+        // Sign the fucntion pointer that is used to initialize the global
+        let initializer = if should_sign {
+            let key: u32 = 0;
+            let discriminator: u64 = 0;
+            let addr_diversity = std::ptr::null_mut();
+
+            unsafe {
+                &*llvm::LLVMRustConstPtrAuth(
+                    cx.const_bitcast(g1, llty) as *const _ as *mut _,
+                    key,
+                    discriminator,
+                    addr_diversity,
+                )
+            }
+        } else {
+            g1
+        };
+
+        llvm::set_initializer(g2, initializer);
+
         g2
     } else if cx.tcx.sess.target.arch == Arch::X86
         && common::is_mingw_gnu_toolchain(&cx.tcx.sess.target)
