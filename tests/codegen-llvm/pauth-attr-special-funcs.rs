@@ -11,8 +11,17 @@ use std::panic;
 // CHECK: define {{.*}} @__rust_try{{.*}} [[ATTR_TRY:#[0-9]+]]
 // CHECK: define {{.*}} @main{{.*}} [[ATTR_MAIN:#[0-9]+]]
 
-// CHECK: attributes [[ATTR_TRY]] = { {{.*}} "ptrauth-auth-traps" "ptrauth-calls" "ptrauth-returns"
-// CHECK: attributes [[ATTR_MAIN]] = { {{.*}} "ptrauth-auth-traps" "ptrauth-calls" "ptrauth-returns"
+// CHECK: attributes [[ATTR_TRY]] = { {{.*}}"aarch64-jump-table-hardening"
+// CHECK-DAG: "ptrauth-auth-traps"
+// CHECK-DAG: "ptrauth-calls"
+// CHECK-DAG: "ptrauth-indirect-gotos"
+// CHECK-DAG: "ptrauth-returns"
+
+// CHECK: attributes [[ATTR_MAIN]] = { {{.*}}"aarch64-jump-table-hardening"
+// CHECK-DAG: "ptrauth-auth-traps"
+// CHECK-DAG: "ptrauth-calls"
+// CHECK-DAG: "ptrauth-indirect-gotos"
+// CHECK-DAG: "ptrauth-returns"
 fn main() {
     let _ = panic::catch_unwind(|| {
         panic!("BOOM");

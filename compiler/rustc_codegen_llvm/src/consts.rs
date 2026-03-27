@@ -9,8 +9,8 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LOCAL_CRATE};
 use rustc_middle::middle::codegen_fn_attrs::{CodegenFnAttrFlags, CodegenFnAttrs};
 use rustc_middle::mir::interpret::{
-    Allocation, ConstAllocation, ErrorHandled, GlobalAlloc, InitChunk, Pointer,
-    Scalar as InterpScalar, read_target_uint,
+    Allocation, ConstAllocation, ErrorHandled, InitChunk, Pointer, Scalar as InterpScalar,
+    read_target_uint,
 };
 use rustc_middle::mir::mono::MonoItem;
 use rustc_middle::ty::layout::{HasTypingEnv, LayoutOf};

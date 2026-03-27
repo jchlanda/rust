@@ -42,9 +42,17 @@ extern "C" {
     fn add_from_c(a: i32, b: i32) -> i32;
 }
 
-// Split each attribute check to two separate comands, so we don't hit rust's 100 line limit
-// O0_PAUTH: attributes #[[ATTR_O0_1]] = { {{.*}}ptrauth-auth-traps{{.*}}ptrauth-calls{{.*}}ptrauth-returns{{.*}}"target-features"="{{.*}}+pauth{{.*}}"
-// O3_PAUTH: attributes #[[ATTR_O3_1]] = { {{.*}}ptrauth-auth-traps{{.*}}ptrauth-calls{{.*}}ptrauth-returns{{.*}}"target-features"="{{.*}}+pauth{{.*}}"
+// O0_PAUTH-CHECK: attributes #[[ATTR_O0_1]] = { {{.*}}"aarch64-jump-table-hardening"
+// O0_PAUTH-CHECK-DAG: "ptrauth-auth-traps"
+// O0_PAUTH-CHECK-DAG: "ptrauth-calls"
+// O0_PAUTH-CHECK-DAG: "ptrauth-indirect-gotos"
+// O0_PAUTH-CHECK-DAG: "ptrauth-returns"
+
+// O3_PAUTH-CHECK: attributes #[[ATTR_O3_1]] = { {{.*}}"aarch64-jump-table-hardening"
+// O3_PAUTH-CHECK-DAG: "ptrauth-auth-traps"
+// O3_PAUTH-CHECK-DAG: "ptrauth-calls"
+// O3_PAUTH-CHECK-DAG: "ptrauth-indirect-gotos"
+// O3_PAUTH-CHECK-DAG: "ptrauth-returns"
 
 // O0_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
 // O0_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}
