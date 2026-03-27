@@ -2,9 +2,9 @@
 This document describes how to build and run the Rust pointer authentication development work.
 
 ## Introduction
-An effort will be made to version notable milestones. In that spirit, [v.0.1.2](https://github.com/jchlanda/rust/tree/v.0.1.2) marks the most recent version of the work. Consult the [repo](https://github.com/jchlanda/rust/branches/all) for other releases.
+An effort will be made to version notable milestones. In that spirit, [v.0.1.3](https://github.com/jchlanda/rust/tree/v.0.1.3) marks the most recent version of the work. Consult the [repo](https://github.com/jchlanda/rust/branches/all) for other releases.
 
-## v.0.1.2
+## v.0.1.3
 Work completed for this revision includes:
 
 * `aarch64-unknown-linux-pauthtest` Rust target description
@@ -62,12 +62,12 @@ index a5277dcac174..2b3214f462bb 100644
 ```
 
 ## Rust
-`aarch64-unknown-linux-pauthtest` was implemented as a build-in target, which does not need a specification in JSON file. Entire target description is encoded in: [aarch64_unknown_linux_pauthtest.rs](https://github.com/jchlanda/rust/blob/v.0.1.2/compiler/rustc_target/src/spec/targets/aarch64_unknown_linux_pauthtest.rs).
+`aarch64-unknown-linux-pauthtest` was implemented as a build-in target, which does not need a specification in JSON file. Entire target description is encoded in: [aarch64_unknown_linux_pauthtest.rs](https://github.com/jchlanda/rust/blob/v.0.1.3/compiler/rustc_target/src/spec/targets/aarch64_unknown_linux_pauthtest.rs).
 
 ### Building
-Start by checking out the most recent [release](https://github.com/jchlanda/rust/tree/v.0.1.2) and running setup command: `x.py setup` which creates a reasonable defaults (choosing the compiler and enabling git hooks pays off in the future).
+Start by checking out the most recent [release](https://github.com/jchlanda/rust/tree/v.0.1.3) and running setup command: `x.py setup` which creates a reasonable defaults (choosing the compiler and enabling git hooks pays off in the future).
 
-For the vanilla checkout, building from source is described in more detail in [INSTALL.md](https://github.com/jchlanda/rust/blob/v.0.1.2/INSTALL.md).
+For the vanilla checkout, building from source is described in more detail in [INSTALL.md](https://github.com/jchlanda/rust/blob/v.0.1.3/INSTALL.md).
 
 Introduction of `aarch64-unknown-linux-pauthtest` target needs to be propagated to some crates, so that they can correctly recognise and handle it. Specifically:
 * `cc-rs`: https://github.com/jchlanda/cc-rs/tree/jakub/cc-v1.2.28-pauthtest
@@ -161,14 +161,14 @@ Finally issue: `x.py build --target aarch64-unknown-linux-pauthtest` followed by
 Which should return the target `aarch64-unknown-linux-pauthtest`.
 
 ### Testing
-* Simple ASM emission test (required by Rust's tidy policy): [targets-aarch64_unknown_linux_pauthtest.rs](https://github.com/jchlanda/rust/blob/v.0.1.2/tests/assembly-llvm/targets/targets-aarch64_unknown_linux_pauthtest.rs)
-* IR generation [pauth-extern-c-direct-indirect-call.rs](https://github.com/jchlanda/rust/blob/v.0.1.2/tests/codegen-llvm/pauth-extern-c-direct-indirect-call.rs) and [pauth-extern-c.rs](https://github.com/jchlanda/rust/blob/v.0.1.2/tests/codegen-llvm/pauth-extern-c.rs)
-* Enabling of init/fini signing: [pauth-init-fini.rs](https://github.com/jchlanda/rust/blob/v.0.1.2/tests/codegen-llvm/pauth-init-fini.rs)
-* Attributes added to compiler generated functions [pauth-attr-special-funcs.rs](https://github.com/jchlanda/rust/blob/v.0.1.2/tests/codegen-llvm/pauth-attr-special-funcs.rs)
-* Correct sign intrinsic generation [pauth-sign-intrinsic.rs](https://github.com/jchlanda/rust/blob/v.0.1.2/tests/codegen-llvm/pauth-sign-intrinsic.rs)
+* Simple ASM emission test (required by Rust's tidy policy): [targets-aarch64_unknown_linux_pauthtest.rs](https://github.com/jchlanda/rust/blob/v.0.1.3/tests/assembly-llvm/targets/targets-aarch64_unknown_linux_pauthtest.rs)
+* IR generation [pauth-extern-c-direct-indirect-call.rs](https://github.com/jchlanda/rust/blob/v.0.1.3/tests/codegen-llvm/pauth-extern-c-direct-indirect-call.rs) and [pauth-extern-c.rs](https://github.com/jchlanda/rust/blob/v.0.1.3/tests/codegen-llvm/pauth-extern-c.rs)
+* Enabling of init/fini signing: [pauth-init-fini.rs](https://github.com/jchlanda/rust/blob/v.0.1.3/tests/codegen-llvm/pauth-init-fini.rs)
+* Attributes added to compiler generated functions [pauth-attr-special-funcs.rs](https://github.com/jchlanda/rust/blob/v.0.1.3/tests/codegen-llvm/pauth-attr-special-funcs.rs)
+* Correct sign intrinsic generation [pauth-sign-intrinsic.rs](https://github.com/jchlanda/rust/blob/v.0.1.3/tests/codegen-llvm/pauth-sign-intrinsic.rs)
 * End-to-end execution. Prior to running those tests make sure that the linker, as specified in `target.aarch64-unknown-linux-pauthtest` section is on the path; if the toolchain instructions have been followed, it should be located in the `/opt/llvm-pauth/bin` directory.
 
-  * Rust drives the program, by providing the data and the comparison function, C implements the quicksort algorithm: [pauth-quicksort-rust-driver.](https://github.com/jchlanda/rust/tree/v.0.1.2/tests/run-make/pauth-quicksort-rust-driver.)
+  * Rust drives the program, by providing the data and the comparison function, C implements the quicksort algorithm: [pauth-quicksort-rust-driver.](https://github.com/jchlanda/rust/tree/v.0.1.3/tests/run-make/pauth-quicksort-rust-driver.)
 
     Inspection of the binary:
     * Expected format:
@@ -190,7 +190,7 @@ Which should return the target `aarch64-unknown-linux-pauthtest`.
     /opt/llvm-pauth/bin/llvm-readelf --all <build_root>/aarch64-unknown-linux-gnu/test/run-make/pauth-quicksort-rust-driver/rmake_out/main > pauth-quicksort-rust-driver.txt
     ```
 
-  * C drives the program, by providing the data and the comparison function, Rust implements the quicksort algorithm: [pauth-quicksort-c-driver](https://github.com/jchlanda/rust/tree/v.0.1.2/tests/run-make/pauth-quicksort-c-driver). This is the mirror reflection of the above (in terms of which language is responsible for what).
+  * C drives the program, by providing the data and the comparison function, Rust implements the quicksort algorithm: [pauth-quicksort-c-driver](https://github.com/jchlanda/rust/tree/v.0.1.3/tests/run-make/pauth-quicksort-c-driver). This is the mirror reflection of the above (in terms of which language is responsible for what).
 
 In order to run all the test:
 ```bash
