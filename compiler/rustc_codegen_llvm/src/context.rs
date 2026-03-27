@@ -164,9 +164,6 @@ pub(crate) struct FullCx<'ll, 'tcx> {
 
     /// Cache of kernel-specific globals
     pub offload_kernel_cache: RefCell<FxHashMap<String, OffloadKernelGlobals<'ll>>>,
-
-    /// Wether personality function flag is needed, in ptrauth mode.
-    pub ptrauth_sign_personality: Cell<bool>,
 }
 
 fn to_llvm_tls_model(tls_model: TlsModel) -> llvm::ThreadLocalMode {
@@ -652,7 +649,6 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
                 objc_selrefs: Default::default(),
                 offload_globals: Default::default(),
                 offload_kernel_cache: Default::default(),
-                ptrauth_sign_personality: Cell::new(false),
             },
             PhantomData,
         )

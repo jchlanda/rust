@@ -2,6 +2,7 @@ use rustc_abi as abi;
 use rustc_middle::mir::interpret::Scalar;
 
 use super::BackendTypes;
+use crate::traits::PacMetadata;
 
 pub trait ConstCodegenMethods: BackendTypes {
     // Constant constructors
@@ -38,6 +39,13 @@ pub trait ConstCodegenMethods: BackendTypes {
     fn const_to_opt_u128(&self, v: Self::Value, sign_ext: bool) -> Option<u128>;
 
     fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, llty: Self::Type) -> Self::Value;
+    fn scalar_to_backend_with_pac(
+        &self,
+        cv: Scalar,
+        layout: abi::Scalar,
+        llty: Self::Type,
+        pac: Option<PacMetadata>,
+    ) -> Self::Value;
 
     fn const_ptr_byte_offset(&self, val: Self::Value, offset: abi::Size) -> Self::Value;
 }

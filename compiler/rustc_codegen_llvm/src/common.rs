@@ -319,7 +319,13 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
         })
     }
 
-    fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, llty: &'ll Type) -> &'ll Value {
+    fn scalar_to_backend_with_pac(
+        &self,
+        cv: Scalar,
+        layout: abi::Scalar,
+        llty: &'ll Type,
+        pac: Option<PacMetadata>,
+    ) -> &'ll Value {
         let bitsize = if layout.is_bool() { 1 } else { layout.size(self).bits() };
         match cv {
             Scalar::Int(int) => {
@@ -374,14 +380,7 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
                             value
                         }
                     }
-                    GlobalAlloc::Function { instance, .. } => self.get_fn_addr(
-                        instance,
-                        Some(PacMetadata {
-                            key: 0,
-                            disc: 0,
-                            addr_diversity: AddressDiversity::None,
-                        }),
-                    ),
+                    GlobalAlloc::Function { instance, .. } => self.get_fn_addr(instance, pac),
                     GlobalAlloc::VTable(ty, dyn_ty) => {
                         let alloc = self
                             .tcx
@@ -430,12 +429,12 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
         }
     }
 
-    fn const_data_from_alloc(&self, alloc: ConstAllocation<'_>) -> Self::Value {
-        const_alloc_to_llvm(
-            self,
-            alloc.inner(),
-            /*static*/ false,
-            /*is_in_init_fini*/ false,
+    fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, llty: &'ll Type) -> &'ll Value {
+        self.scalar_to_backend_with_pac(
+            cv,
+            layout,
+            llty,
+            Some(PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }),
         )
     }
 

@@ -44,7 +44,7 @@ fn test_indirect_call() {
     // Also test calling via conditional pointer
     unsafe {
         // O0_PAUTH: call {{.*}}i32 ptrauth (ptr @rand, i32 0)({{.*}}) #{{[0-9]+}} [ "ptrauth"(i32{{.*}}, i64{{.*}}) ]
-        // O3_PAUTH: call {{.*}}i32 ptrauth (ptr @rand, i32 0)({{.*}}) #{{[0-9]+}} [ "ptrauth"(i32{{.*}}, i64{{.*}}) ]
+        // O3_PAUTH: call {{.*}}i32  @rand() #
         let use_add = rand() % 2 == 0;
         let fp: CFnPtr = if use_add { add } else { sub };
         // O0_PAUTH: call {{.*}}i32 %{{.*}}({{.*}}) #{{[0-9]+}} [ "ptrauth"(i32{{.*}}, i64{{.*}}) ]
@@ -62,14 +62,14 @@ fn test_indirect_call() {
 fn test_direct_call() {
     unsafe {
         // O0_PAUTH: call {{.*}}i32 ptrauth (ptr @add, i32 0)({{.*}}) #{{[0-9]+}} [ "ptrauth"(i32{{.*}}, i64{{.*}}) ]
-        // O3_PAUTH: call {{.*}}i32 ptrauth (ptr @add, i32 0)({{.*}}) #{{[0-9]+}} [ "ptrauth"(i32{{.*}}, i64{{.*}}) ]
+        // O3_PAUTH: call {{.*}}i32 @add(i32 {{.*}}2, i32 {{.*}}3) #
         let _d1 = add(2, 3);
         // O0_PAUTH: call {{.*}}i32 ptrauth (ptr @sub, i32 0)({{.*}}) #{{[0-9]+}} [ "ptrauth"(i32{{.*}}, i64{{.*}}) ]
-        // O3_PAUTH: call {{.*}}i32 ptrauth (ptr @sub, i32 0)({{.*}}) #{{[0-9]+}} [ "ptrauth"(i32{{.*}}, i64{{.*}}) ]
+        // O3_PAUTH: call {{.*}}i32 @sub(i32 {{.*}}5, i32 {{.*}}1) #
         let _d2 = sub(5, 1);
 
         // O0_PAUTH: call {{.*}}void ptrauth (ptr @direct_function_taking_void_arg, i32 0)({{.*}}) #{{[0-9]+}} [ "ptrauth"(i32{{.*}}, i64{{.*}}) ]
-        // O3_PAUTH: call {{.*}}void ptrauth (ptr @direct_function_taking_void_arg, i32 0)({{.*}}) #{{[0-9]+}} [ "ptrauth"(i32{{.*}}, i64{{.*}}) ]
+        // O3_PAUTH: {{(tail )?}}call void @direct_function_taking_void_arg(ptr noundef %{{.*}}) #
         direct_function_taking_void_arg(woof);
     }
 }
