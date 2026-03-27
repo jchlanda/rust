@@ -26,55 +26,6 @@ use crate::llvm::{self, Type, Value};
 use crate::type_of::LayoutLlvmExt;
 use crate::{base, debuginfo};
 
-fn scalar_fn_ptrauth_to_backend<'ll>(
-    cx: &CodegenCx<'ll, '_>,
-    cv: InterpScalar,
-    llty: &'ll Type,
-) -> &'ll Value {
-    // NOTE: This function is a distilled version of ConstCodegenMethods::scalar_to_backend,
-    // implemented here so that we don't have to extend the trait. It only expects pointers to
-    // functions. Its sole purpose is to use a non-pointer-authenticated function address. And then
-    // decide if to sign it (using appropriate init/fini discriminator).
-    let ptr = match cv {
-        InterpScalar::Ptr(ptr, _size) => ptr,
-        _ => panic!("Fatal error: expected Scalar::Ptr, got {:?}", cv),
-    };
-
-    let (prov, offset) = ptr.prov_and_relative_offset();
-    let global_alloc = cx.tcx.global_alloc(prov.alloc_id());
-    let base_addr = match global_alloc {
-        GlobalAlloc::Function { instance, .. } => {
-            let metadata = Some(PacMetadata {
-                key: 0,
-                // The value is ptrauth_string_discriminator("init_fini").
-                disc: 0xd9d4,
-                // Decide if to use address diversity based on the flag.
-                addr_diversity: if cx
-                    .sess()
-                    .opts
-                    .unstable_opts
-                    .pauth_disable_init_fini_addr_discriminator
-                {
-                    AddressDiversity::None
-                } else {
-                    AddressDiversity::Synthetic(1)
-                },
-            });
-
-            cx.get_fn_addr(instance, metadata)
-        }
-        _ => panic!("Fatal error: expected GlobalAlloc::Function, got {:?}", global_alloc),
-    };
-
-    let llval = unsafe {
-        llvm::LLVMConstInBoundsGEP2(cx.type_i8(), base_addr, &cx.const_usize(offset.bytes()), 1)
-    };
-
-    let res = cx.const_bitcast(llval, llty);
-    debug!("scalar_fn_no_ptrauth_to_backend: res = {:?}", res);
-    res
-}
-
 pub(crate) fn const_alloc_to_llvm<'ll>(
     cx: &CodegenCx<'ll, '_>,
     alloc: &Allocation,
@@ -160,29 +111,34 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
 
         let address_space = cx.tcx.global_alloc(prov.alloc_id()).address_space(cx);
         // Pauthtest function pointers stored in init/fini arrays need special handling.
-        let is_pauth_init_fini = cx.sess().target.env == Env::Pauthtest && is_in_init_fini;
-        llvals.push(if is_pauth_init_fini {
-            scalar_fn_ptrauth_to_backend(
-                cx,
-                InterpScalar::from_pointer(
-                    Pointer::new(prov, Size::from_bytes(ptr_offset)),
-                    &cx.tcx,
-                ),
-                cx.type_ptr_ext(address_space),
-            )
-        } else {
-            cx.scalar_to_backend(
-                InterpScalar::from_pointer(
-                    Pointer::new(prov, Size::from_bytes(ptr_offset)),
-                    &cx.tcx,
-                ),
-                Scalar::Initialized {
-                    value: Primitive::Pointer(address_space),
-                    valid_range: WrappingRange::full(pointer_size),
+        let pac_metadata = Some(if cx.sess().target.env == Env::Pauthtest && is_in_init_fini {
+            PacMetadata {
+                key: 0,
+                // ptrauth_string_discriminator("init_fini")
+                disc: 0xd9d4,
+                addr_diversity: if cx
+                    .sess()
+                    .opts
+                    .unstable_opts
+                    .pauth_disable_init_fini_addr_discriminator
+                {
+                    AddressDiversity::None
+                } else {
+                    AddressDiversity::Synthetic(1)
                 },
-                cx.type_ptr_ext(address_space),
-            )
+            }
+        } else {
+            PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }
         });
+        llvals.push(cx.scalar_to_backend_with_pac(
+            InterpScalar::from_pointer(Pointer::new(prov, Size::from_bytes(ptr_offset)), &cx.tcx),
+            Scalar::Initialized {
+                value: Primitive::Pointer(address_space),
+                valid_range: WrappingRange::full(pointer_size),
+            },
+            cx.type_ptr_ext(address_space),
+            pac_metadata,
+        ));
         next_offset = offset + pointer_size_bytes;
     }
     if alloc.len() >= next_offset {
@@ -873,7 +829,12 @@ impl<'ll> StaticCodegenMethods for CodegenCx<'ll, '_> {
     fn static_addr_of(&self, alloc: ConstAllocation<'_>, kind: Option<&str>) -> &'ll Value {
         // FIXME: should we cache `const_alloc_to_llvm` to avoid repeating this for the
         // same `ConstAllocation`?
-        let cv = const_alloc_to_llvm(self, alloc.inner(), /*static*/ false);
+        let cv = const_alloc_to_llvm(
+            self,
+            alloc.inner(),
+            /*static*/ false,
+            /*is_in_init_fini*/ false,
+        );
 
         let gv = self.static_addr_of_impl(cv, alloc.inner().align, kind);
         // static_addr_of_impl returns the bare global variable, which might not be in the default
