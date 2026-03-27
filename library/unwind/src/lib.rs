@@ -98,14 +98,14 @@ cfg_select! {
 // musl, the only supported unwinding mechanism is provided by libunwind.
 #[cfg(target_env = "pauthtest")]
 cfg_select! {
-    target_feature = "crt-static" => {
-        compile_error!("pauthtest target only supports dynamic linking to `unwind`");
-    }
-    _ => {
-        #[link(name = "unwind")]
-         unsafe extern "C" {}
+   target_feature = "crt-static" => {
+       compile_error!("pauthtest target only supports dynamic linking to `unwind`");
+   }
+   _ => {
+       #[link(name = "unwind")]
+        unsafe extern "C" {}
      }
- }
+}
 
 // This is the same as musl except that we default to using the system libunwind
 // instead of libgcc.
