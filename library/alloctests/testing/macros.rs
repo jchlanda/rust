@@ -7,7 +7,7 @@ macro_rules! struct_with_counted_drop {
 
         impl ::std::ops::Drop for $struct_name {
             fn drop(&mut self) {
-                $drop_counter.set($drop_counter.get() + 1);
+                $drop_counter.set($drop_counter.get().wrapping_add(1));
 
                 $($drop_stmt(self))?
             }
