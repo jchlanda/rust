@@ -2,36 +2,34 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use crate::spec::{
-    Arch, Cc, Env, FramePointer, LinkerFlavor, Lld, MergeFunctions, StackProbeType, Target,
-    TargetMetadata, TargetOptions, base,
+    Arch, Cc, Env, FramePointer, LinkerFlavor, Lld, StackProbeType, Target, TargetMetadata,
+    TargetOptions, base,
 };
 
 pub(crate) fn target() -> Target {
     let root = std::env::var("LLVM_PAUTH").unwrap_or_else(|_| "/opt/llvm-pauth".into());
 
-    let pre_link_args = BTreeMap::from([(LinkerFlavor::Gnu(Cc::Yes, Lld::No), {
-        let lib_path =
-            Box::leak(format!("-L{}/aarch64-linux-pauthtest/usr/lib", root).into_boxed_str());
-        vec![Cow::Borrowed(lib_path)]
-    })]);
-    let late_link_args = BTreeMap::from([(LinkerFlavor::Gnu(Cc::Yes, Lld::No), {
-        let dynamic_linker = Box::leak(
-            format!("-Wl,--dynamic-linker={}/aarch64-linux-pauthtest/usr/lib/libc.so", root)
-                .into_boxed_str(),
-        );
-        let rpath = Box::leak(
-            format!("-Wl,--rpath={}/aarch64-linux-pauthtest/usr/lib", root).into_boxed_str(),
-        );
-        let clang_rt_builtins = Box::leak(
-            format!(
-                "{}/lib/clang/22/lib/aarch64-unknown-linux-pauthtest/libclang_rt.builtins.a",
-                root
-            )
-            .into_boxed_str(),
-        );
+    // lib path
+    let pre_link_args = BTreeMap::from([(
+        LinkerFlavor::Gnu(Cc::Yes, Lld::No),
+        vec![Cow::Borrowed(Box::leak(
+            format!("-L{}/aarch64-linux-pauthtest/usr/lib", root).into_boxed_str(),
+        ))],
+    )]);
 
-        vec![Cow::Borrowed(dynamic_linker), Cow::Borrowed(rpath), Cow::Borrowed(clang_rt_builtins)]
-    })]);
+    let late_link_args = BTreeMap::from([(
+        LinkerFlavor::Gnu(Cc::Yes, Lld::No),
+        vec![
+            Cow::Borrowed(Box::leak(
+                format!("-Wl,--dynamic-linker={}/aarch64-linux-pauthtest/usr/lib/libc.so", root)
+                    .into_boxed_str(),
+            )),
+            // rpath
+            Cow::Borrowed(Box::leak(
+                format!("-Wl,--rpath={}/aarch64-linux-pauthtest/usr/lib", root).into_boxed_str(),
+            )),
+        ],
+    )]);
 
     Target {
         llvm_target: "aarch64-unknown-linux-pauthtest".into(),
@@ -64,10 +62,7 @@ pub(crate) fn target() -> Target {
             // and we tend to encounter interesting bugs in AArch64 unwinding code if we do not
             frame_pointer: FramePointer::NonLeaf,
             mcount: "\u{1}_mcount".into(),
-            // FIXME: JKB: Remove once https://github.com/llvm/llvm-project/pull/159480 is
-            // available.
-            merge_functions: MergeFunctions::Disabled,
-            ..base::linux_musl::opts()
+            ..base::linux::opts()
          },
     }
 }
