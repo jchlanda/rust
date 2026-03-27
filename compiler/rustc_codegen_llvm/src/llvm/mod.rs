@@ -467,3 +467,12 @@ pub(crate) fn add_alias<'ll>(
 ) -> &'ll Value {
     unsafe { LLVMAddAlias2(module, ty, address_space.0, aliasee, name.as_ptr()) }
 }
+
+unsafe extern "C" {
+    pub(crate) fn LLVMRustConstPtrAuth(
+        Fn: *mut Value,
+        Key: u32,
+        Disc: u64,
+        AddrDiversity: *mut Value,
+    ) -> *mut Value;
+}
