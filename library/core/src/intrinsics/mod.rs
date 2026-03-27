@@ -3607,3 +3607,13 @@ pub const fn va_copy<'f>(src: &VaList<'f>) -> VaList<'f> {
 pub const unsafe fn va_end(ap: &mut VaList<'_>) {
     /* deliberately does nothing */
 }
+
+/// Produce a signed pointer for the given raw pointer without applying any authentication or extra
+/// treatment. This operation is not required to have the same behavior on a null pointer that the
+/// language implementation would. This is a treacherous operation that can easily result in signing
+/// oracles. Programs should use it seldom and carefully.
+/// ptrauth_sign resolves to llvm.ptrauth.sign: <https://llvm.org/docs/PointerAuth.html#llvm-ptrauth-sign>
+#[cfg(target_env = "pauthtest")]
+#[rustc_intrinsic]
+#[rustc_nounwind]
+pub unsafe fn ptrauth_sign<T>(ptr: *const T, key: u32, data: u64) -> *const T;
