@@ -14,6 +14,10 @@ Work completed for this revision includes:
 * Skeleton for executable, IR, and assembly testing
 * Full build of std library using pauthtest target
 * All library tests (alloc, core, std) passing on pauthtest target
+* All ui tests passing on pauthtest target
+* Added "aarch64-jump-table-hardening", "ptrauth-indirect-gotos",
+  "ptrauth-elf-got".
+* Added support for address diversity in init/fini signing.
 
 ## Pre-requisites
 Throughout this document it is assumed that work is being done on an AArch64 Linux system. Testing was specifically done on Ubuntu AArch64 24.04.3 LTS.
@@ -40,73 +44,21 @@ At the time of writing we support ptrauth intrinsics, calls, returns, auth-traps
 
 ```diff
 diff --git a/clang/lib/Driver/ToolChains/Linux.cpp b/clang/lib/Driver/ToolChains/Linux.cpp
-index 94a9fe8b1a63..c87ef9f0791b 100644
+index a5277dcac174..2b3214f462bb 100644
 --- a/clang/lib/Driver/ToolChains/Linux.cpp
 +++ b/clang/lib/Driver/ToolChains/Linux.cpp
-@@ -499,37 +499,37 @@ static void handlePAuthABI(const Driver &D, const ArgList &DriverArgs,
-                          options::OPT_fno_ptrauth_auth_traps))
-     CC1Args.push_back("-fptrauth-auth-traps");
+@@ -540,6 +540,10 @@ static void handlePAuthABI(const Driver &D, const ArgList &DriverArgs,
+           options::OPT_fno_ptrauth_init_fini_address_discrimination))
+     CC1Args.push_back("-fptrauth-init-fini-address-discrimination");
 
--  if (!DriverArgs.hasArg(
--          options::OPT_fptrauth_vtable_pointer_address_discrimination,
--          options::OPT_fno_ptrauth_vtable_pointer_address_discrimination))
--    CC1Args.push_back("-fptrauth-vtable-pointer-address-discrimination");
--
--  if (!DriverArgs.hasArg(
--          options::OPT_fptrauth_vtable_pointer_type_discrimination,
--          options::OPT_fno_ptrauth_vtable_pointer_type_discrimination))
--    CC1Args.push_back("-fptrauth-vtable-pointer-type-discrimination");
--
--  if (!DriverArgs.hasArg(
--          options::OPT_fptrauth_type_info_vtable_pointer_discrimination,
--          options::OPT_fno_ptrauth_type_info_vtable_pointer_discrimination))
--    CC1Args.push_back("-fptrauth-type-info-vtable-pointer-discrimination");
--
--  if (!DriverArgs.hasArg(options::OPT_fptrauth_indirect_gotos,
--                         options::OPT_fno_ptrauth_indirect_gotos))
--    CC1Args.push_back("-fptrauth-indirect-gotos");
-+  // if (!DriverArgs.hasArg(
-+  //         options::OPT_fptrauth_vtable_pointer_address_discrimination,
-+  //         options::OPT_fno_ptrauth_vtable_pointer_address_discrimination))
-+  //   CC1Args.push_back("-fptrauth-vtable-pointer-address-discrimination");
-+  //
-+  // if (!DriverArgs.hasArg(
-+  //         options::OPT_fptrauth_vtable_pointer_type_discrimination,
-+  //         options::OPT_fno_ptrauth_vtable_pointer_type_discrimination))
-+  //   CC1Args.push_back("-fptrauth-vtable-pointer-type-discrimination");
-+  //
-+  // if (!DriverArgs.hasArg(
-+  //         options::OPT_fptrauth_type_info_vtable_pointer_discrimination,
-+  //         options::OPT_fno_ptrauth_type_info_vtable_pointer_discrimination))
-+  //   CC1Args.push_back("-fptrauth-type-info-vtable-pointer-discrimination");
-+  //
-+  // if (!DriverArgs.hasArg(options::OPT_fptrauth_indirect_gotos,
-+  //                        options::OPT_fno_ptrauth_indirect_gotos))
-+  //   CC1Args.push_back("-fptrauth-indirect-gotos");
++  if (!DriverArgs.hasArg(options::OPT_fptrauth_elf_got,
++                         options::OPT_fno_ptrauth_elf_got))
++    CC1Args.push_back("-fptrauth-elf-got");
++
+   if (!DriverArgs.hasArg(options::OPT_faarch64_jump_table_hardening,
+                          options::OPT_fno_aarch64_jump_table_hardening))
+     CC1Args.push_back("-faarch64-jump-table-hardening");
 
-   if (!DriverArgs.hasArg(options::OPT_fptrauth_init_fini,
-                          options::OPT_fno_ptrauth_init_fini))
-     CC1Args.push_back("-fptrauth-init-fini");
-
--  if (!DriverArgs.hasArg(
--          options::OPT_fptrauth_init_fini_address_discrimination,
--          options::OPT_fno_ptrauth_init_fini_address_discrimination))
--    CC1Args.push_back("-fptrauth-init-fini-address-discrimination");
--
--  if (!DriverArgs.hasArg(options::OPT_faarch64_jump_table_hardening,
--                         options::OPT_fno_aarch64_jump_table_hardening))
--    CC1Args.push_back("-faarch64-jump-table-hardening");
-+  // if (!DriverArgs.hasArg(
-+  //         options::OPT_fptrauth_init_fini_address_discrimination,
-+  //         options::OPT_fno_ptrauth_init_fini_address_discrimination))
-+  //   CC1Args.push_back("-fptrauth-init-fini-address-discrimination");
-+  //
-+  // if (!DriverArgs.hasArg(options::OPT_faarch64_jump_table_hardening,
-+  //                        options::OPT_fno_aarch64_jump_table_hardening))
-+  //   CC1Args.push_back("-faarch64-jump-table-hardening");
- }
-
- void Linux::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
 ```
 
 ## Rust
@@ -245,9 +197,9 @@ In order to run all the test:
 x.py test --target aarch64-unknown-linux-pauthtest --force-rerun tests/run-make/pauth-quicksort-rust-driver tests/run-make/pauth-quicksort-c-driver tests/codegen-llvm/pauth-attr-special-funcs.rs tests/codegen-llvm/pauth-sign-intrinsic.rs tests/codegen-llvm/pauth-extern-c-direct-indirect-call.rs tests/codegen-llvm/pauth-init-fini.rs tests/codegen-llvm/pauth-extern-c.rs tests/assembly-llvm/targets/targets-aarch64_unknown_linux_pauthtest.rs
 ```
 
-The current version passes all the test from the `library` subset (`alloc`, `core` and `std`). This can be verified by running:
+The current version passes all the test from the `ui` and `library` subset (`alloc`, `core` and `std`). This can be verified by running:
 ```bash
-x.py test library --target aarch64-unknown-linux-pauthtest
+x.py test ui library --target aarch64-unknown-linux-pauthtest
 ```
 
 ## Limitation
