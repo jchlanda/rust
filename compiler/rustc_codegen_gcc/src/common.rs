@@ -225,7 +225,13 @@ impl<'gcc, 'tcx> ConstCodegenMethods for CodegenCx<'gcc, 'tcx> {
         None
     }
 
-    fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, ty: Type<'gcc>) -> RValue<'gcc> {
+    fn scalar_to_backend_with_pac(
+        &self,
+        cv: Scalar,
+        layout: abi::Scalar,
+        llty: Self::Type,
+        _pac: Option<PacMetadata>,
+    ) -> Self::Value {
         let bitsize = if layout.is_bool() { 1 } else { layout.size(self).bits() };
         match cv {
             Scalar::Int(int) => {
@@ -311,6 +317,10 @@ impl<'gcc, 'tcx> ConstCodegenMethods for CodegenCx<'gcc, 'tcx> {
                 }
             }
         }
+    }
+
+    fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, ty: Type<'gcc>) -> RValue<'gcc> {
+        self.scalar_to_backend_with_pac(cv, layout, ty, None)
     }
 
     fn const_ptr_byte_offset(&self, base_addr: Self::Value, offset: abi::Size) -> Self::Value {
