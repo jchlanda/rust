@@ -24,6 +24,17 @@ pub(crate) use crate::context::CodegenCx;
 use crate::context::{GenericCx, SCx};
 use crate::llvm::{self, BasicBlock, ConstantInt, FALSE, TRUE, ToLlvmBool, Type, Value};
 
+#[inline]
+pub(crate) fn pauth_fn_attrs() -> &'static [&'static str] {
+    &[
+        "aarch64-jump-table-hardening",
+        "ptrauth-indirect-gotos",
+        "ptrauth-calls",
+        "ptrauth-returns",
+        "ptrauth-auth-traps",
+    ]
+}
+
 pub(crate) fn maybe_sign_fn_ptr<'ll, 'tcx>(
     cx: &CodegenCx<'ll, '_>,
     instance: Instance<'tcx>,

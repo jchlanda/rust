@@ -1303,6 +1303,13 @@ fn get_rust_try_fn<'a, 'll, 'tcx>(
         ExternAbi::Rust,
     ));
     let rust_try = gen_fn(cx, "__rust_try", rust_fn_sig, codegen);
+    if cx.sess().target.env == Env::Pauthtest {
+        let attrs: Vec<&Attribute> =
+            pauth_fn_attrs().iter().map(|name| llvm::CreateAttrString(cx.llcx, name)).collect();
+        let (_ty, rust_try_fn) = rust_try;
+        crate::attributes::apply_to_llfn(rust_try_fn, AttributePlace::Function, &attrs);
+    }
+
     cx.rust_try_fn.set(Some(rust_try));
     rust_try
 }
