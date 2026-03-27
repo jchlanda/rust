@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use rustc_abi::{Align, HasDataLayout, Primitive, Scalar, Size, WrappingRange};
+use rustc_abi::{Align, ExternAbi, HasDataLayout, Primitive, Scalar, Size, WrappingRange};
 use rustc_codegen_ssa::common;
 use rustc_codegen_ssa::traits::*;
 use rustc_hir::LangItem;
@@ -17,7 +17,7 @@ use rustc_middle::ty::layout::{HasTypingEnv, LayoutOf};
 use rustc_middle::ty::{self, Instance};
 use rustc_middle::{bug, span_bug};
 use rustc_span::Symbol;
-use rustc_target::spec::Arch;
+use rustc_target::spec::{Arch, Env};
 use tracing::{debug, instrument, trace};
 
 use crate::common::CodegenCx;
@@ -30,6 +30,7 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
     cx: &CodegenCx<'ll, '_>,
     alloc: &Allocation,
     is_static: bool,
+    is_in_init_fini: bool,
 ) -> &'ll Value {
     // We expect that callers of const_alloc_to_llvm will instead directly codegen a pointer or
     // integer for any &ZST where the ZST is a constant (i.e. not a static). We should never be
@@ -109,14 +110,34 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
             as u64;
 
         let address_space = cx.tcx.global_alloc(prov.alloc_id()).address_space(cx);
-
-        llvals.push(cx.scalar_to_backend(
+        // Pauthtest function pointers stored in init/fini arrays need special handling.
+        let pac_metadata = Some(if cx.sess().target.env == Env::Pauthtest && is_in_init_fini {
+            PacMetadata {
+                key: 0,
+                // ptrauth_string_discriminator("init_fini")
+                disc: 0xd9d4,
+                addr_diversity: if cx
+                    .sess()
+                    .opts
+                    .unstable_opts
+                    .pauth_disable_init_fini_addr_discriminator
+                {
+                    AddressDiversity::None
+                } else {
+                    AddressDiversity::Synthetic(1)
+                },
+            }
+        } else {
+            PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }
+        });
+        llvals.push(cx.scalar_to_backend_with_pac(
             InterpScalar::from_pointer(Pointer::new(prov, Size::from_bytes(ptr_offset)), &cx.tcx),
             Scalar::Initialized {
                 value: Primitive::Pointer(address_space),
                 valid_range: WrappingRange::full(pointer_size),
             },
             cx.type_ptr_ext(address_space),
+            pac_metadata,
         ));
         next_offset = offset + pointer_size_bytes;
     }
@@ -141,7 +162,15 @@ fn codegen_static_initializer<'ll, 'tcx>(
     def_id: DefId,
 ) -> Result<(&'ll Value, ConstAllocation<'tcx>), ErrorHandled> {
     let alloc = cx.tcx.eval_static_initializer(def_id)?;
-    Ok((const_alloc_to_llvm(cx, alloc.inner(), /*static*/ true), alloc))
+    let attrs = cx.tcx.codegen_fn_attrs(def_id);
+    let is_in_init_fini = attrs
+        .link_section
+        .map(|link_section| {
+            let s = link_section.as_str();
+            s.starts_with(".init_array") || s.starts_with(".fini_array")
+        })
+        .unwrap_or(false);
+    Ok((const_alloc_to_llvm(cx, alloc.inner(), /*static*/ true, is_in_init_fini), alloc))
 }
 
 fn set_global_alignment<'ll>(cx: &CodegenCx<'ll, '_>, gv: &'ll Value, mut align: Align) {
@@ -164,6 +193,7 @@ fn check_and_apply_linkage<'ll, 'tcx>(
     if let Some(linkage) = attrs.import_linkage {
         debug!("get_static: sym={} linkage={:?}", sym, linkage);
 
+        let mut should_sign = false;
         // Declare a symbol `foo`. If `foo` is an extern_weak symbol, we declare
         // an extern_weak function, otherwise a global with the desired linkage.
         let g1 = if matches!(attrs.import_linkage, Some(Linkage::ExternalWeak)) {
@@ -176,8 +206,13 @@ fn check_and_apply_linkage<'ll, 'tcx>(
                 && let ty::FnPtr(sig, header) = args.type_at(0).kind()
             {
                 let fn_sig = sig.with(*header);
-
                 let fn_abi = cx.fn_abi_of_fn_ptr(fn_sig, ty::List::empty());
+                // Decide if the initilizer needs to be signed
+                if cx.sess().target.env == Env::Pauthtest
+                    && matches!(fn_sig.abi(), ExternAbi::C { .. })
+                {
+                    should_sign = true;
+                }
                 cx.declare_fn(sym, &fn_abi, None)
             } else {
                 cx.declare_global(sym, cx.type_i8())
@@ -206,7 +241,27 @@ fn check_and_apply_linkage<'ll, 'tcx>(
             })
         });
         llvm::set_linkage(g2, llvm::Linkage::InternalLinkage);
-        llvm::set_initializer(g2, g1);
+
+        // Sign the fucntion pointer that is used to initialize the global
+        let initializer = if should_sign {
+            let key: u32 = 0;
+            let discriminator: u64 = 0;
+            let addr_diversity = std::ptr::null_mut();
+
+            unsafe {
+                &*llvm::LLVMRustConstPtrAuth(
+                    cx.const_bitcast(g1, llty) as *const _ as *mut _,
+                    key,
+                    discriminator,
+                    addr_diversity,
+                )
+            }
+        } else {
+            g1
+        };
+
+        llvm::set_initializer(g2, initializer);
+
         g2
     } else if cx.tcx.sess.target.arch == Arch::X86
         && common::is_mingw_gnu_toolchain(&cx.tcx.sess.target)
@@ -775,7 +830,12 @@ impl<'ll> StaticCodegenMethods for CodegenCx<'ll, '_> {
     fn static_addr_of(&self, alloc: ConstAllocation<'_>, kind: Option<&str>) -> &'ll Value {
         // FIXME: should we cache `const_alloc_to_llvm` to avoid repeating this for the
         // same `ConstAllocation`?
-        let cv = const_alloc_to_llvm(self, alloc.inner(), /*static*/ false);
+        let cv = const_alloc_to_llvm(
+            self,
+            alloc.inner(),
+            /*static*/ false,
+            /*is_in_init_fini*/ false,
+        );
 
         let gv = self.static_addr_of_impl(cv, alloc.inner().align, kind);
         // static_addr_of_impl returns the bare global variable, which might not be in the default
