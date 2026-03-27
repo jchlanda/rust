@@ -29,24 +29,16 @@ use tracing::debug;
 use crate::abi::FnAbiLlvmExt;
 use crate::builder::Builder;
 use crate::builder::autodiff::{adjust_activity_to_abi, generate_enzyme_call};
-<<<<<<< HEAD
 use crate::builder::gpu_offload::{
     OffloadKernelDims, gen_call_handling, gen_define_handling, register_offload,
 };
-=======
-use crate::builder::gpu_offload::TgtOffloadEntry;
 use crate::common::pauth_fn_attrs;
->>>>>>> 72932b2567c (Unify handling of ptrauth-* attributes)
 use crate::context::CodegenCx;
 use crate::declare::declare_raw_fn;
 use crate::errors::{
     AutoDiffWithoutEnable, AutoDiffWithoutLto, OffloadWithoutEnable, OffloadWithoutFatLTO,
 };
-<<<<<<< HEAD
-use crate::llvm::{self, Type, Value};
-=======
-use crate::llvm::{self, Attribute, AttributePlace, Metadata, Type, Value};
->>>>>>> 72932b2567c (Unify handling of ptrauth-* attributes)
+use crate::llvm::{self, Attribute, AttributePlace, Type, Value};
 use crate::type_of::LayoutLlvmExt;
 use crate::va_arg::emit_va_arg;
 
