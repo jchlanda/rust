@@ -22,7 +22,9 @@ use tracing::debug;
 use crate::consts::const_alloc_to_llvm;
 pub(crate) use crate::context::CodegenCx;
 use crate::context::{GenericCx, SCx};
-use crate::llvm::{self, BasicBlock, ConstantInt, FALSE, TRUE, ToLlvmBool, Type, Value};
+use crate::llvm::{
+    self, BasicBlock, ConstantInt, FALSE, TRUE, ToLlvmBool, Type, Value, const_ptr_auth,
+};
 
 #[inline]
 pub(crate) fn pauth_fn_attrs() -> &'static [&'static str] {
@@ -63,24 +65,16 @@ pub(crate) fn maybe_sign_fn_ptr<'ll, 'tcx>(
         return llfn;
     }
 
-    let addr_diversity: &'ll llvm::Value = match pac.addr_diversity {
-        AddressDiversity::None => cx.const_null(cx.val_ty(llfn)),
-        AddressDiversity::Real => llfn,
+    let addr_diversity = match pac.addr_diversity {
+        AddressDiversity::None => None,
+        AddressDiversity::Real => Some(llfn),
         AddressDiversity::Synthetic(val) => {
             let llval = cx.const_u64(val);
             let llty = cx.val_ty(llfn);
-            unsafe { llvm::LLVMConstIntToPtr(llval, llty) }
+            Some(unsafe { llvm::LLVMConstIntToPtr(llval, llty) })
         }
     };
-    unsafe {
-        let authed = llvm::LLVMRustConstPtrAuth(
-            llfn as *const _ as *mut _,
-            pac.key,
-            pac.disc,
-            addr_diversity as *const _ as *mut _,
-        );
-        &*authed
-    }
+    const_ptr_auth(llfn, pac.key, pac.disc, addr_diversity)
 }
 
 /*

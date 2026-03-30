@@ -1798,7 +1798,7 @@ extern "C" LLVMValueRef LLVMRustConstPtrAuth(LLVMValueRef Ptr, uint32_t Key,
       AddrDiversity ? dyn_cast<Constant>(unwrap<Value>(AddrDiversity))
                     : ConstantPointerNull::get(cast<PointerType>(C->getType()));
   assert(AddrDiv && "Failed to get Address Diversity");
-  llvm::Type *PtrTy = llvm::PointerType::get(Ctx, 0);
+  llvm::Type *PtrTy = llvm::PointerType::get(Ctx, PTy->getAddressSpace());
   auto *DeactivationSym = llvm::Constant::getNullValue(PtrTy);
 
   return wrap(ConstantPtrAuth::get(C, KeyC, DiscC, AddrDiv, DeactivationSym));

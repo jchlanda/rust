@@ -2550,4 +2550,11 @@ unsafe extern "C" {
         Aliasee: &Value,
         Name: *const c_char,
     ) -> &'ll Value;
+
+    pub(crate) fn LLVMRustConstPtrAuth(
+        ptr: *mut Value,
+        key: u32,
+        disc: u64,
+        addr_diversity: *mut Value,
+    ) -> *mut Value;
 }

@@ -22,7 +22,7 @@ use tracing::{debug, instrument, trace};
 
 use crate::common::CodegenCx;
 use crate::errors::SymbolAlreadyDefined;
-use crate::llvm::{self, Type, Value};
+use crate::llvm::{self, Type, Value, const_ptr_auth};
 use crate::type_of::LayoutLlvmExt;
 use crate::{base, debuginfo};
 
@@ -246,16 +246,13 @@ fn check_and_apply_linkage<'ll, 'tcx>(
         let initializer = if should_sign {
             let key: u32 = 0;
             let discriminator: u64 = 0;
-            let addr_diversity = std::ptr::null_mut();
 
-            unsafe {
-                &*llvm::LLVMRustConstPtrAuth(
-                    cx.const_bitcast(g1, llty) as *const _ as *mut _,
-                    key,
-                    discriminator,
-                    addr_diversity,
-                )
-            }
+            const_ptr_auth(
+                cx.const_bitcast(g1, llty),
+                key,
+                discriminator,
+                None, /* address_diversity */
+            )
         } else {
             g1
         };
