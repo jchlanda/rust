@@ -205,4 +205,4 @@ x.py test ui library --target aarch64-unknown-linux-pauthtest
 ## Limitation
 Operand bundles should only be attached to indirect function calls. However, as function pointer signing is unstable, we end up signing too eagerly (including functions used for direct calls), hence operand bundles are added to all calls. The issue is further discussed in a ticket at [rust-lang issue tracker](https://github.com/rust-lang/rust/issues/152532).
 
-The test coverage is limited apart, while custom tests mentioned above and all the library tests are expect to pass, there are number of failures in ui subset that are being investigated.
+The test coverage is limited; except for the tests explicitly mentioned above, no guarantees are made regarding the state of other tests.
