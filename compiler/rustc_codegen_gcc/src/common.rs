@@ -319,10 +319,6 @@ impl<'gcc, 'tcx> ConstCodegenMethods for CodegenCx<'gcc, 'tcx> {
         }
     }
 
-    fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, ty: Type<'gcc>) -> RValue<'gcc> {
-        self.scalar_to_backend_with_pac(cv, layout, ty, None)
-    }
-
     fn const_ptr_byte_offset(&self, base_addr: Self::Value, offset: abi::Size) -> Self::Value {
         self.context
             .new_array_access(None, base_addr, self.const_usize(offset.bytes()))

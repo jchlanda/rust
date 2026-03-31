@@ -38,7 +38,9 @@ pub trait ConstCodegenMethods: BackendTypes {
     fn const_to_opt_uint(&self, v: Self::Value) -> Option<u64>;
     fn const_to_opt_u128(&self, v: Self::Value, sign_ext: bool) -> Option<u128>;
 
-    fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, llty: Self::Type) -> Self::Value;
+    fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, llty: Self::Type) -> Self::Value {
+        self.scalar_to_backend_with_pac(cv, layout, llty, None)
+    }
     fn scalar_to_backend_with_pac(
         &self,
         cv: Scalar,
