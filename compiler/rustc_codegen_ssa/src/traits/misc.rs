@@ -6,10 +6,15 @@ use rustc_session::Session;
 
 use super::BackendTypes;
 
+/// Strategy for incorporating address-based diversity into PAC computation.
 pub enum AddressDiversity {
+    /// No address diversity is applied.
     None,
-    Real,           // Use actual address
-    Synthetic(u64), // Use a fixed, synthetic value (i.e. 1 for init/fini)
+    /// Use the actual memory address for diversification.
+    Real,
+    /// Use a fixed synthetic value instead of the real address,
+    /// i.e. `1` is used for `.init_array` / `.fini_array`.
+    Synthetic(u64),
 }
 
 impl Default for AddressDiversity {
@@ -18,9 +23,13 @@ impl Default for AddressDiversity {
     }
 }
 
+/// Metadata used for pointer authentication.
 pub struct PacMetadata {
+    /// The PAC key to use.
     pub key: u32,
+    /// Discriminator value used to diversify the PAC.
     pub disc: u64,
+    /// Controls how address diversity is applied when computing the PAC.
     pub addr_diversity: AddressDiversity,
 }
 
