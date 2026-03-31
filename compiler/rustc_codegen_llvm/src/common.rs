@@ -19,7 +19,7 @@ use rustc_session::cstore::DllImport;
 use rustc_target::spec::Env;
 use tracing::debug;
 
-use crate::consts::const_alloc_to_llvm;
+use crate::consts::{IsInitOrFini, IsStatic, const_alloc_to_llvm};
 pub(crate) use crate::context::CodegenCx;
 use crate::context::{GenericCx, SCx};
 use crate::llvm::{
@@ -357,8 +357,8 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
                             let init = const_alloc_to_llvm(
                                 self,
                                 alloc.inner(),
-                                /*static*/ false,
-                                /*is_in_init_fini*/ false,
+                                IsStatic::No,
+                                IsInitOrFini::No,
                             );
                             let alloc = alloc.inner();
                             let value = match alloc.mutability {
@@ -394,8 +394,8 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
                         let init = const_alloc_to_llvm(
                             self,
                             alloc.inner(),
-                            /*static*/ false,
-                            /*is_in_init_fini*/ false,
+                            IsStatic::No,
+                            IsInitOrFini::No,
                         );
                         self.static_addr_of_impl(init, alloc.inner().align, None)
                     }

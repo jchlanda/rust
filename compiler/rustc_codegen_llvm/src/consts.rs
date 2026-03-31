@@ -26,11 +26,19 @@ use crate::llvm::{self, Type, Value, const_ptr_auth};
 use crate::type_of::LayoutLlvmExt;
 use crate::{base, debuginfo};
 
+pub(crate) enum IsStatic {
+    Yes,
+    No,
+}
+pub(crate) enum IsInitOrFini {
+    Yes,
+    No,
+}
 pub(crate) fn const_alloc_to_llvm<'ll>(
     cx: &CodegenCx<'ll, '_>,
     alloc: &Allocation,
-    is_static: bool,
-    is_in_init_fini: bool,
+    is_static: IsStatic,
+    is_init_fini: IsInitOrFini,
 ) -> &'ll Value {
     // We expect that callers of const_alloc_to_llvm will instead directly codegen a pointer or
     // integer for any &ZST where the ZST is a constant (i.e. not a static). We should never be
@@ -39,7 +47,7 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
     //
     // Statics have a guaranteed meaningful address so it's less clear that we want to do
     // something like this; it's also harder.
-    if !is_static {
+    if matches!(is_static, IsStatic::No) {
         assert!(alloc.len() != 0);
     }
     let mut llvals = Vec::with_capacity(alloc.provenance().ptrs().len() + 1);
@@ -111,25 +119,27 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
 
         let address_space = cx.tcx.global_alloc(prov.alloc_id()).address_space(cx);
         // Pauthtest function pointers stored in init/fini arrays need special handling.
-        let pac_metadata = Some(if cx.sess().target.env == Env::Pauthtest && is_in_init_fini {
-            PacMetadata {
-                key: 0,
-                // ptrauth_string_discriminator("init_fini")
-                disc: 0xd9d4,
-                addr_diversity: if cx
-                    .sess()
-                    .opts
-                    .unstable_opts
-                    .pauth_disable_init_fini_addr_discriminator
-                {
-                    AddressDiversity::None
-                } else {
-                    AddressDiversity::Synthetic(1)
-                },
-            }
-        } else {
-            PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }
-        });
+        let pac_metadata = Some(
+            if cx.sess().target.env == Env::Pauthtest && matches!(is_init_fini, IsInitOrFini::Yes) {
+                PacMetadata {
+                    key: 0,
+                    // ptrauth_string_discriminator("init_fini")
+                    disc: 0xd9d4,
+                    addr_diversity: if cx
+                        .sess()
+                        .opts
+                        .unstable_opts
+                        .pauth_disable_init_fini_addr_discriminator
+                    {
+                        AddressDiversity::None
+                    } else {
+                        AddressDiversity::Synthetic(1)
+                    },
+                }
+            } else {
+                PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }
+            },
+        );
         llvals.push(cx.scalar_to_backend_with_pac(
             InterpScalar::from_pointer(Pointer::new(prov, Size::from_bytes(ptr_offset)), &cx.tcx),
             Scalar::Initialized {
@@ -163,14 +173,18 @@ fn codegen_static_initializer<'ll, 'tcx>(
 ) -> Result<(&'ll Value, ConstAllocation<'tcx>), ErrorHandled> {
     let alloc = cx.tcx.eval_static_initializer(def_id)?;
     let attrs = cx.tcx.codegen_fn_attrs(def_id);
-    let is_in_init_fini = attrs
+    let is_in_init_fini: IsInitOrFini = attrs
         .link_section
         .map(|link_section| {
             let s = link_section.as_str();
-            s.starts_with(".init_array") || s.starts_with(".fini_array")
+            if s.starts_with(".init_array") || s.starts_with(".fini_array") {
+                IsInitOrFini::Yes
+            } else {
+                IsInitOrFini::No
+            }
         })
-        .unwrap_or(false);
-    Ok((const_alloc_to_llvm(cx, alloc.inner(), /*static*/ true, is_in_init_fini), alloc))
+        .unwrap_or(IsInitOrFini::No);
+    Ok((const_alloc_to_llvm(cx, alloc.inner(), IsStatic::Yes, is_in_init_fini), alloc))
 }
 
 fn set_global_alignment<'ll>(cx: &CodegenCx<'ll, '_>, gv: &'ll Value, mut align: Align) {
@@ -827,12 +841,7 @@ impl<'ll> StaticCodegenMethods for CodegenCx<'ll, '_> {
     fn static_addr_of(&self, alloc: ConstAllocation<'_>, kind: Option<&str>) -> &'ll Value {
         // FIXME: should we cache `const_alloc_to_llvm` to avoid repeating this for the
         // same `ConstAllocation`?
-        let cv = const_alloc_to_llvm(
-            self,
-            alloc.inner(),
-            /*static*/ false,
-            /*is_in_init_fini*/ false,
-        );
+        let cv = const_alloc_to_llvm(self, alloc.inner(), IsStatic::No, IsInitOrFini::No);
 
         let gv = self.static_addr_of_impl(cv, alloc.inner().align, kind);
         // static_addr_of_impl returns the bare global variable, which might not be in the default
