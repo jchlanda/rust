@@ -91,13 +91,10 @@ const UNWIND_DATA_REG: (i32, i32) = (4, 5); // a0, a1
 
 unsafe fn sign_lpad(context: *mut uw::_Unwind_Context, lpad: *const u8) -> *const u8 {
     cfg_select! {
-        all(target_env = "pauthtest", any(target_arch = "aarch64", target_arch = "arm")) => {
-            #[cfg(target_arch = "aarch64")]
+        all(target_env = "pauthtest", target_arch = "aarch64") => {
+            /// DWARF register number for SP on AArch64.
             const SP_REG: i32 = 31;
-
-            #[cfg(target_arch = "arm")]
-            const SP_REG: i32 = 13;
-
+            /// Corresponds to `ptrauth_key_process_dependent_code` in <ptrauth.h>.
             const PTRAUTH_KEY_ASIB: u32 = 1;
 
             unsafe {
