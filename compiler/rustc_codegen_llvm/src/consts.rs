@@ -26,10 +26,12 @@ use crate::llvm::{self, Type, Value, const_ptr_auth};
 use crate::type_of::LayoutLlvmExt;
 use crate::{base, debuginfo};
 
+/// Indicates whether a value originates from a `static`.
 pub(crate) enum IsStatic {
     Yes,
     No,
 }
+/// Indicates whether a symbol is part of `.init_array` or `.fini_array`.
 pub(crate) enum IsInitOrFini {
     Yes,
     No,
