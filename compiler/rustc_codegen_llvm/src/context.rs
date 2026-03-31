@@ -906,7 +906,7 @@ impl<'ll, 'tcx> MiscCodegenMethods<'tcx> for CodegenCx<'ll, 'tcx> {
                     ty::List::empty(),
                     DUMMY_SP,
                 ),
-                Some(PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }),
+                Some(PacMetadata::default()),
             ),
             _ => {
                 let name = name.unwrap_or("rust_eh_personality");

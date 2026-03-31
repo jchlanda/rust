@@ -12,10 +12,22 @@ pub enum AddressDiversity {
     Synthetic(u64), // Use a fixed, synthetic value (i.e. 1 for init/fini)
 }
 
+impl Default for AddressDiversity {
+    fn default() -> Self {
+        AddressDiversity::None
+    }
+}
+
 pub struct PacMetadata {
     pub key: u32,
     pub disc: u64,
     pub addr_diversity: AddressDiversity,
+}
+
+impl Default for PacMetadata {
+    fn default() -> Self {
+        PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::default() }
+    }
 }
 
 pub trait MiscCodegenMethods<'tcx>: BackendTypes {

@@ -430,12 +430,9 @@ impl<'ll, 'tcx> ConstCodegenMethods for CodegenCx<'ll, 'tcx> {
     }
 
     fn scalar_to_backend(&self, cv: Scalar, layout: abi::Scalar, llty: &'ll Type) -> &'ll Value {
-        self.scalar_to_backend_with_pac(
-            cv,
-            layout,
-            llty,
-            Some(PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }),
-        )
+        // `scalar_to_backen` is a convenience function use default PAC metadata values (0 for key
+        // and discriminator and no address diversity).
+        self.scalar_to_backend_with_pac(cv, layout, llty, Some(PacMetadata::default()))
     }
 
     fn const_ptr_byte_offset(&self, base_addr: Self::Value, offset: abi::Size) -> Self::Value {

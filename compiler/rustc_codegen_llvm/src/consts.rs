@@ -137,7 +137,7 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
                     },
                 }
             } else {
-                PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }
+                PacMetadata::default()
             },
         );
         llvals.push(cx.scalar_to_backend_with_pac(

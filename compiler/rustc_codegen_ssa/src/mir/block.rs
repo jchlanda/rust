@@ -656,10 +656,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             }
             _ => (
                 false,
-                bx.get_fn_addr(
-                    drop_fn,
-                    Some(PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }),
-                ),
+                bx.get_fn_addr(drop_fn, Some(PacMetadata::default())),
                 bx.fn_abi_of_instance(drop_fn, ty::List::empty()),
                 drop_fn,
             ),
@@ -1034,17 +1031,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                         )
                         .unwrap();
 
-                        (
-                            None,
-                            Some(bx.get_fn_addr(
-                                instance,
-                                Some(PacMetadata {
-                                    key: 0,
-                                    disc: 0,
-                                    addr_diversity: AddressDiversity::None,
-                                }),
-                            )),
-                        )
+                        (None, Some(bx.get_fn_addr(instance, Some(PacMetadata::default()))))
                     }
                     _ => (Some(instance), None),
                 }
@@ -1350,10 +1337,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         }
 
         let fn_ptr = match (instance, llfn) {
-            (Some(instance), None) => bx.get_fn_addr(
-                instance,
-                Some(PacMetadata { key: 0, disc: 0, addr_diversity: AddressDiversity::None }),
-            ),
+            (Some(instance), None) => bx.get_fn_addr(instance, Some(PacMetadata::default())),
             (_, Some(llfn)) => llfn,
             _ => span_bug!(fn_span, "no instance or llfn for call"),
         };
