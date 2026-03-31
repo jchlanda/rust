@@ -2000,18 +2000,19 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
         if self.sess().target.env != Env::Pauthtest {
             return None;
         }
+        // Pauthtest only supports extern "C" calls, filter out other ABIs.
         if fn_abi?.conv != CanonAbi::C {
             return None;
         }
         // Filter out LLVM intrinsics.
-        let name = llvm::get_value_name(llfn);
-        if name.starts_with(b"llvm.") {
+        if llvm::get_value_name(llfn).starts_with(b"llvm.") {
             return None;
         }
-        // FIXME: JKB: operand bundles should only be attached to indirect function calls.
-        // However, as function signing is unstable, we end up signing too eagerly (including
-        // direct function calls), hence add operand bundles to all calls. We should analyze the
-        // call and bail out on direct calls here.
+
+        // FIXME: @jchlanda operand bundles should only be attached to indirect function calls.
+        // However, as function signing is unstable, we end up signing too eagerly (including direct
+        // function calls), hence add operand bundles to all calls. We should analyze the call and
+        // bail out on direct calls here.
 
         let key: u32 = 0;
         let discriminator: u64 = 0;
