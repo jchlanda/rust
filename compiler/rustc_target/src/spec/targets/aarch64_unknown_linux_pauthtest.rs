@@ -12,23 +12,19 @@ pub(crate) fn target() -> Target {
     // lib path
     let pre_link_args = BTreeMap::from([(
         LinkerFlavor::Gnu(Cc::Yes, Lld::No),
-        vec![Cow::Borrowed(Box::leak(
-            format!("-L{}/aarch64-linux-pauthtest/usr/lib", root).into_boxed_str(),
-        ))],
+        vec![Cow::Owned(format!("-L{}/aarch64-linux-pauthtest/usr/lib", root))],
     )]);
 
     let late_link_args = BTreeMap::from([(
         LinkerFlavor::Gnu(Cc::Yes, Lld::No),
         vec![
             // dynamic linker
-            Cow::Borrowed(Box::leak(
-                format!("-Wl,--dynamic-linker={}/aarch64-linux-pauthtest/usr/lib/libc.so", root)
-                    .into_boxed_str(),
+            Cow::Owned(format!(
+                "-Wl,--dynamic-linker={}/aarch64-linux-pauthtest/usr/lib/libc.so",
+                root
             )),
             // rpath
-            Cow::Borrowed(Box::leak(
-                format!("-Wl,--rpath={}/aarch64-linux-pauthtest/usr/lib", root).into_boxed_str(),
-            )),
+            Cow::Owned(format!("-Wl,--rpath={}/aarch64-linux-pauthtest/usr/lib", root)),
         ],
     )]);
 
