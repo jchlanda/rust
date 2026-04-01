@@ -7,7 +7,6 @@ calls in Rust on AArch64 ELF based Linux systems using a custom pauthtest ABI
 and toolchain.
 
 Supported features include:
-* pointer authentication intrinsics
 * signed function calls and returns
 * pauth traps
 * signing of init/fini array entries (with address diversity)
@@ -50,28 +49,6 @@ Make sure that the config file keeps the extra flags unset:
 ```
 EXTRA_FLAGS_PAUTHTEST=""
 EXTRA_FLAGS_MUSL=""
-```
-
-It's necessary to enable ELF GOT signing by default by applying the following
-patch in `<pauth-toolchain-build-scripts-root>/src/llvm`
-
-```diff
-diff --git a/clang/lib/Driver/ToolChains/Linux.cpp b/clang/lib/Driver/ToolChains/Linux.cpp
-index a5277dcac174..2b3214f462bb 100644
---- a/clang/lib/Driver/ToolChains/Linux.cpp
-+++ b/clang/lib/Driver/ToolChains/Linux.cpp
-@@ -540,6 +540,10 @@ static void handlePAuthABI(const Driver &D, const ArgList &DriverArgs,
-           options::OPT_fno_ptrauth_init_fini_address_discrimination))
-     CC1Args.push_back("-fptrauth-init-fini-address-discrimination");
-
-+  if (!DriverArgs.hasArg(options::OPT_fptrauth_elf_got,
-+                         options::OPT_fno_ptrauth_elf_got))
-+    CC1Args.push_back("-fptrauth-elf-got");
-+
-   if (!DriverArgs.hasArg(options::OPT_faarch64_jump_table_hardening,
-                          options::OPT_fno_aarch64_jump_table_hardening))
-     CC1Args.push_back("-faarch64-jump-table-hardening");
-
 ```
 
 Rust compiler will make assumptions about the location of the PAC toolchain, so
