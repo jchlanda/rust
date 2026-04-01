@@ -1572,7 +1572,6 @@ symbols! {
         ptr_write_bytes,
         ptr_write_unaligned,
         ptr_write_volatile,
-        ptrauth_sign,
         pub_macro_rules,
         pub_restricted,
         public,

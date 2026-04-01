@@ -92,14 +92,22 @@ const UNWIND_DATA_REG: (i32, i32) = (4, 5); // a0, a1
 unsafe fn sign_lpad(context: *mut uw::_Unwind_Context, lpad: *const u8) -> *const u8 {
     cfg_select! {
         all(target_env = "pauthtest", target_arch = "aarch64") => {
-            /// DWARF register number for SP on AArch64.
+            // DWARF register number for SP on AArch64.
             const SP_REG: i32 = 31;
-            /// Corresponds to `ptrauth_key_process_dependent_code` in <ptrauth.h>.
-            const PTRAUTH_KEY_ASIB: u32 = 1;
 
             unsafe {
                 let sp = uw::_Unwind_GetGR(context, SP_REG) as u64;
-                crate::intrinsics::ptrauth_sign(lpad, PTRAUTH_KEY_ASIB, sp)
+                let mut addr = lpad as usize;
+
+                // `pacib` corresponds to `ptrauth_key_process_dependent_code` in <ptrauth.h>.
+                core::arch::asm!(
+                    "pacib {addr}, {sp}",
+                    addr = inout(reg) addr,
+                    sp = in(reg) sp,
+                    options(nostack, preserves_flags)
+                );
+
+                lpad.with_addr(addr)
             }
         }
         _ => {

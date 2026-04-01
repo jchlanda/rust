@@ -705,13 +705,6 @@ pub(crate) fn check_intrinsic_type(
         sym::aggregate_raw_ptr => (3, 0, vec![param(1), param(2)], param(0)),
         sym::ptr_metadata => (2, 0, vec![Ty::new_imm_ptr(tcx, param(0))], param(1)),
 
-        sym::ptrauth_sign => {
-            let ptr_ty = Ty::new_imm_ptr(tcx, param(0));
-            let key_ty = tcx.types.u32;
-            let data_ty = tcx.types.u64;
-            (1, 0, vec![ptr_ty, key_ty, data_ty], ptr_ty)
-        }
-
         sym::ub_checks | sym::overflow_checks => (0, 0, Vec::new(), tcx.types.bool),
 
         // contract_check_requires::<C>(C) -> bool, where C: impl Fn() -> bool
