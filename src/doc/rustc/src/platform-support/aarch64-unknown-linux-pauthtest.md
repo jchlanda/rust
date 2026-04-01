@@ -12,7 +12,8 @@ Supported features include:
 * signing of init/fini array entries (with address diversity)
 * hardened indirect control flow (`aarch64-jump-table-hardening`,
   `ptrauth-indirect-gotos`)
-* signed ELF GOT entries
+* signed ELF GOT entries (gated behind `-Z pauth_enable_elf_got`, off by
+  default)
 
 ## Target maintainers
 
