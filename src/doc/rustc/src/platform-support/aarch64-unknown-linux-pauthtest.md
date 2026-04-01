@@ -33,7 +33,6 @@ Supported features include:
 
 This target supports cross-compilation from any Linux host, but execution
 requires AArch64 with pointer authentication support (ARMv8.3 or higher).
-Development and testing were performed on Ubuntu AArch64 24.04.3 LTS.
 
 ## Standard library support
 
@@ -42,26 +41,10 @@ All library tests (`core`, `alloc`, `std`) pass for this target as well.
 
 ## Building the target
 
-Building the target itself requires a PAC toolchain present on the system. In
-order to build the toolchain, alongside the patched version of musl please
-follow the instructions in the [build scripts
-repo](https://github.com/access-softek/pauth-toolchain-build-scripts). Make sure
-that the following variables are correctly set up in the [config
-file](https://github.com/access-softek/pauth-toolchain-build-scripts/blob/master/config):
-* `LLVM_BRANCH=`
-* `MUSL_BRANCH=v1.2.5-pauth-rev2025-11-21`
-* `LLVM_SHA=8e2a5e37eaf638c536dd71cb685843e8cb2aed2c` that corresponds to
-  "\[DA\] Consolidate the core logic of the Weak Zero SIV tests (NFCI)
-  (#185577)", top of the trunk at the time of writing this document
-* `MUSL_SHA=b37ee52aff13880884a7afa8c5161a4f4f7e0236`
-
-Make sure that the config file keeps the extra flags unset:
-
-```
-EXTRA_FLAGS_PAUTHTEST=""
-EXTRA_FLAGS_MUSL=""
-```
-
+Building the target itself requires pauthtest-enabled sysroot based on a custom
+pauthtest-enabled musl to be present on the system. In order to fulfill the
+requirement please follow the build instructions at [build scripts
+repo](https://github.com/access-softek/pauth-toolchain-build-scripts).
 Rust compiler will make assumptions about the location of the PAC toolchain, so
 if it is not installed in the standard location: `/opt/llvm-pauth` it is
 necessary to provide the location through `LLVM_PAUTH` environment variable.
@@ -103,10 +86,12 @@ index e1725db60cf..46763cdf9a4 100644
 +cc = { path = '<rust_root>/patches/cc-rs' }
 ```
 
-`backtrace` requires an in-tree patch to avoid incorrect pointer authentication
-during unwinding (returning raw instruction pointers instead of invoking
-libunwind authentication paths). Navigate to: `<rust_root>/library/backtrace`
-and apply the following patch:
+In contrast to `cc-rs` and `libc`, which are external crates resolved from
+crates.io and can be overridden using [patch.crates-io], `backtrace` is included
+in the Rust repository as a git submodule under:
+`<rust_root>/library/backtrace`. At the time of writing the necessary change has
+not yet been committed to it. Which means that for the time being it requires an
+in-tree patch to be applied. The patch:
 
 ```diff
 diff --git a/src/backtrace/libunwind.rs b/src/backtrace/libunwind.rs
