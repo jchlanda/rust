@@ -2,16 +2,26 @@
 
 **Tier: 3**
 
-The target enables Pointer Authentication Code (PAC) support for extern "C"
-calls in Rust on AArch64 ELF based Linux systems using a custom pauthtest ABI
-and toolchain.
+The target enables Pointer Authentication Code (PAC) support in Rust on AArch64
+ELF based Linux systems using a pauthtest ABI (provided by LLVM) and
+pauthtest-enabled sysroot with custom musl, serving as a reference libc
+implementation.
 
 Supported features include:
-* signed function calls and returns
-* pauth traps
-* signing of init/fini array entries (with address diversity)
-* hardened indirect control flow (`aarch64-jump-table-hardening`,
-  `ptrauth-indirect-gotos`)
+* authenticating signed function pointers for extern "C" function calls
+  (corresponds to `-fptrauth-calls` included in pauthtest ABI as defined in
+  LLVM)
+* signing return address before spilling to stack and authenticating return
+  address after restoring from stack for non-leaf functions (corresponds to
+  `-fptrauth-returns`)
+* Trapping if authentication failure is detected and FPAC feature is not present
+  (corresponds to `-fptrauth-auth-traps`)
+* Signing of init/fini array entries with the signing schema defined used for
+  pauthtest ABI (corresponding to `-fptrauth-init-fini`,
+  `-fptrauth-init-fini-address-discrimination`)
+* Non-ABI-affecting indirect control flow hardening features included in
+  pauthtest ABI (corresponding to `-faarch64-jump-table-hardening`,
+  `-fptrauth-indirect-gotos`)
 * signed ELF GOT entries (gated behind `-Z pauth_enable_elf_got`, off by
   default)
 
@@ -166,7 +176,6 @@ The following categories are supported (all present in tree):
   * pauth-extern-c-direct-indirect-call.rs
   * pauth-init-fini.rs
   * pauth-attr-special-funcs.rs
-  * pauth-sign-intrinsic.rs
 * End-to-end execution tests
   * Rust-driven quicksort (pauth-quicksort-rust-driver)
   * C-driven quicksort (pauth-quicksort-c-driver)
@@ -181,7 +190,6 @@ x.py test --target aarch64-unknown-linux-pauthtest --force-rerun \
   tests/run-make/pauth-quicksort-rust-driver \
   tests/run-make/pauth-quicksort-c-driver \
   tests/codegen-llvm/pauth-attr-special-funcs.rs \
-  tests/codegen-llvm/pauth-sign-intrinsic.rs \
   tests/codegen-llvm/pauth-extern-c-direct-indirect-call.rs \
   tests/codegen-llvm/pauth-init-fini.rs \
   tests/codegen-llvm/pauth-extern-c.rs \
