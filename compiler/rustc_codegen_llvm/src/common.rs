@@ -28,6 +28,9 @@ use crate::llvm::{
 
 #[inline]
 pub(crate) fn pauth_fn_attrs() -> &'static [&'static str] {
+    // FIXME: @jchlanda This is not an exhaustive list of all `pauthtest`-related attributes, but
+    // only those currently supported. The list is expected to grow as additional functionality is
+    // implemented, particularly for C++ interoperability.
     &[
         "aarch64-jump-table-hardening",
         "ptrauth-indirect-gotos",

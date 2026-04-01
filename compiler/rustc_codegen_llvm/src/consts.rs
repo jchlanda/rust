@@ -124,6 +124,7 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
         let pac_metadata = Some(
             if cx.sess().target.env == Env::Pauthtest && matches!(is_init_fini, IsInitOrFini::Yes) {
                 PacMetadata {
+                    // Must correspond to ptrauth_key_init_fini_pointer from `ptrauth.h`.
                     key: 0,
                     // ptrauth_string_discriminator("init_fini")
                     disc: 0xd9d4,
@@ -258,7 +259,7 @@ fn check_and_apply_linkage<'ll, 'tcx>(
         });
         llvm::set_linkage(g2, llvm::Linkage::InternalLinkage);
 
-        // Sign the fucntion pointer that is used to initialize the global
+        // Sign the function pointer that is used to initialize the global
         let initializer = if should_sign {
             let key: u32 = 0;
             let discriminator: u64 = 0;
