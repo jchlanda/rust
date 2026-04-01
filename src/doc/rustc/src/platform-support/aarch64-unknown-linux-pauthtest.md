@@ -74,6 +74,11 @@ index a5277dcac174..2b3214f462bb 100644
 
 ```
 
+Rust compiler will make assumptions about the location of the PAC toolchain, so
+if it is not installed in the standard location: `/opt/llvm-pauth` it is
+necessary to provide the location through `LLVM_PAUTH` environment variable.
+This is a limitation that is being investigated on.
+
 Introduction of `aarch64-unknown-linux-pauthtest` target needs to be propagated
 to some crates, so that they can correctly recognise and handle it.
 Specifically:
