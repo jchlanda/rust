@@ -2536,7 +2536,7 @@ options! {
         (default: no)"),
     patchable_function_entry: PatchableFunctionEntry = (PatchableFunctionEntry::default(), parse_patchable_function_entry, [TRACKED],
         "nop padding at function entry"),
-    pauth_disable_init_fini_addr_discriminator: bool = (false, parse_bool, [TRACKED], "disable address diversity when signing init/fini array entries"),
+    pauth_enable_elf_got: bool = (false, parse_bool, [TRACKED], "enable signing of ELF GOT entries"),
     plt: Option<bool> = (None, parse_opt_bool, [TRACKED],
         "whether to use the PLT when calling into shared libraries;
         only has effect for PIC code on systems with ELF binaries

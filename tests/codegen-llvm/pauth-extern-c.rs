@@ -1,11 +1,15 @@
 // ignore-tidy-linelength
 //@ only-aarch64-unknown-linux-pauthtest
-//@ revisions: O0_PAUTH O3_PAUTH O0_NO_PAUTH O3_NO_PAUTH
+//@ revisions: O0_PAUTH O3_PAUTH O0_PAUTH-ELF-GOT O3_PAUTH-ELF-GOT O0_NO_PAUTH O3_NO_PAUTH
 
 //@ [O0_PAUTH] needs-llvm-components: aarch64
 //@ [O0_PAUTH] compile-flags: --target=aarch64-unknown-linux-pauthtest -C opt-level=0
 //@ [O3_PAUTH] needs-llvm-components: aarch64
 //@ [O3_PAUTH] compile-flags: --target=aarch64-unknown-linux-pauthtest -C opt-level=3
+//@ [O0_PAUTH-ELF-GOT] needs-llvm-components: aarch64
+//@ [O0_PAUTH-ELF-GOT] compile-flags: --target=aarch64-unknown-linux-pauthtest -C opt-level=0 -Z pauth_enable_elf_got
+//@ [O3_PAUTH-ELF-GOT] needs-llvm-components: aarch64
+//@ [O3_PAUTH-ELF-GOT] compile-flags: --target=aarch64-unknown-linux-pauthtest -C opt-level=3 -Z pauth_enable_elf_got
 //@ [O0_NO_PAUTH] needs-llvm-components: aarch64
 //@ [O0_NO_PAUTH] compile-flags: --target=aarch64-unknown-linux-gnu -C opt-level=0
 //@ [O3_NO_PAUTH] needs-llvm-components: aarch64
@@ -54,9 +58,11 @@ extern "C" {
 // O3_PAUTH-CHECK-DAG: "ptrauth-indirect-gotos"
 // O3_PAUTH-CHECK-DAG: "ptrauth-returns"
 
-// O0_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O0_PAUTH-ELF-GOT: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O0_PAUTH-NOT: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
 // O0_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}
-// O3_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O3_PAUTH-ELF-GOT: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
+// O3_PAUTH-NOT: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}
 // O3_PAUTH: !{{[0-9]+}} = !{i32 7, !"ptrauth-sign-personality", i32 1}
 
 // O0_NO_PAUTH-NOT: !{{[0-9]+}} = !{i32 7, !"ptrauth-elf-got", i32 1}

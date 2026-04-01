@@ -150,7 +150,9 @@ pub(crate) fn compile_codegen_unit(
             }
 
             if cx.sess().target.env == Env::Pauthtest {
-                cx.add_ptrauth_elf_got_flag();
+                if cx.sess().opts.unstable_opts.pauth_enable_elf_got {
+                    cx.add_ptrauth_elf_got_flag();
+                }
                 cx.add_ptrauth_sign_personality_flag();
             }
 

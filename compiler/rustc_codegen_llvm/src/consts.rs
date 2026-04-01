@@ -128,16 +128,7 @@ pub(crate) fn const_alloc_to_llvm<'ll>(
                     key: 0,
                     // ptrauth_string_discriminator("init_fini")
                     disc: 0xd9d4,
-                    addr_diversity: if cx
-                        .sess()
-                        .opts
-                        .unstable_opts
-                        .pauth_disable_init_fini_addr_discriminator
-                    {
-                        AddressDiversity::None
-                    } else {
-                        AddressDiversity::Synthetic(1)
-                    },
+                    addr_diversity: AddressDiversity::Synthetic(1),
                 }
             } else {
                 PacMetadata::default()
