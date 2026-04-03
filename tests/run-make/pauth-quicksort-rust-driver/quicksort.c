@@ -1,7 +1,3 @@
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,7 +48,3 @@ void quickSort(void *Base, size_t N, size_t Size,
   if (N > 1)
     quickSortRec(Base, 0, (int)N - 1, Size, Cmp);
 }
-
-#ifdef __cplusplus
-}
-#endif

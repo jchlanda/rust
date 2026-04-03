@@ -2009,10 +2009,10 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
             return None;
         }
 
-        // FIXME: @jchlanda operand bundles should only be attached to indirect function calls.
-        // However, as function signing is unstable, we end up signing too eagerly (including direct
-        // function calls), hence add operand bundles to all calls. We should analyze the call and
-        // bail out on direct calls here.
+        // FIXME(jchlanda) operand bundles should only be attached to indirect function calls.
+        // However, as function signing is unstable, we end up signing too eagerly (including
+        // direct function calls), hence add operand bundles to all calls. We should analyze the
+        // call and bail out on direct calls here.
 
         let key: u32 = 0;
         let discriminator: u64 = 0;
