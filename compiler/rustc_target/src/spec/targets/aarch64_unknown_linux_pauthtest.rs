@@ -7,24 +7,31 @@ use crate::spec::{
 };
 
 pub(crate) fn target() -> Target {
-    let root = std::env::var("LLVM_PAUTH").unwrap_or_else(|_| "/opt/llvm-pauth".into());
+    let pauthtest_sysroot = std::env::var("PAUTHTEST_SYSROOT").unwrap_or_default();
 
-    // lib path
     let pre_link_args = BTreeMap::from([(
         LinkerFlavor::Gnu(Cc::Yes, Lld::No),
-        vec![Cow::Owned(format!("-L{}/aarch64-linux-pauthtest/usr/lib", root))],
+        vec![
+            "-target".into(),
+            "aarch64-unknown-linux-pauthtest".into(),
+            "-fuse-ld=lld".into(),
+            Cow::Owned(format!("-L{}/usr/lib", pauthtest_sysroot)),
+            Cow::Owned(format!("--sysroot={}", pauthtest_sysroot).into()),
+        ],
     )]);
 
     let late_link_args = BTreeMap::from([(
         LinkerFlavor::Gnu(Cc::Yes, Lld::No),
         vec![
+            "-nostdlib".into(),
             // dynamic linker
-            Cow::Owned(format!(
-                "-Wl,--dynamic-linker={}/aarch64-linux-pauthtest/usr/lib/libc.so",
-                root
-            )),
+            Cow::Owned(format!("-Wl,--dynamic-linker={}/usr/lib/libc.so", pauthtest_sysroot)),
             // rpath
-            Cow::Owned(format!("-Wl,--rpath={}/aarch64-linux-pauthtest/usr/lib", root)),
+            Cow::Owned(format!("-Wl,--rpath={}/usr/lib", pauthtest_sysroot)),
+            // sysroot's CRT
+            Cow::Owned(format!("-Wl,{}/usr/lib/crt1.o", pauthtest_sysroot)),
+            Cow::Owned(format!("-Wl,{}/usr/lib/crti.o", pauthtest_sysroot)),
+            Cow::Owned(format!("-Wl,{}/usr/lib/crtn.o", pauthtest_sysroot)),
         ],
     )]);
 
@@ -49,7 +56,7 @@ pub(crate) fn target() -> Target {
             crt_static_respected: false,
             default_uwtable: true,
             dynamic_linking: true,
-            linker: Some("aarch64-linux-pauthtest-clang".into()),
+            linker: Some("clang".into()),
             pre_link_args,
             late_link_args,
             has_rpath: true,

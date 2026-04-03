@@ -1,6 +1,6 @@
 // Test compilation flow using custom pauth-enabled toolchain and signing extern "C" function
-// pointers used from withing rust. Note that in order for the test to work the toolchain has to be
-// provided via env variable (LLVM_PAUTH), or present at `/opt/llvm-pauth`.
+// pointers used from within rust. The test assumes that pauthtest-enabled `clang` is available on
+// the path.
 // In this test rust is the driver - providing the data and the comparison function; while c -
 // provides the implementation of quicksort algorithm and is the user of  the data and comparator.
 
@@ -9,25 +9,29 @@
 use run_make_support::{cc, rfs, run, run_fail, rustc};
 
 fn main() {
-    let root = std::env::var("LLVM_PAUTH").unwrap_or_else(|_| "/opt/llvm-pauth".into());
-
-    let clang_path = format!("{}/bin/clang", root);
     unsafe {
-        std::env::set_var("CC", clang_path);
+        std::env::set_var("CC", "clang");
     }
 
+    let pauthtest_sysroot = std::env::var("PAUTHTEST_SYSROOT").unwrap_or_default();
     let input = "quicksort";
     let input_name = format!("{input}.c");
     let lib_name = format!("{}{input}.{}", "lib", "so");
     cc().out_exe(&lib_name)
         .input(&input_name)
-        .args(&["-target", "aarch64-linux-pauthtest", "-fPIC", "-shared"])
+        .args(&[
+            &format!("--sysroot={}", pauthtest_sysroot),
+            "-lc",
+            "-nostdlib",
+            "-target",
+            "aarch64-linux-pauthtest",
+            "-fPIC",
+            "-shared",
+        ])
         .run();
 
     rustc().target("aarch64-unknown-linux-pauthtest").input("main.rs").run();
     run("main");
-    //rustc().target("aarch64-unknown-linux-pauthtest").input("main.rs")
-    //.args(&["--emit=llvm-ir,asm"]).run();
 
     rfs::remove_file(&lib_name);
     run_fail("main");

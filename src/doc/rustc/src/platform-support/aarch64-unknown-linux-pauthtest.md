@@ -44,11 +44,10 @@ All library tests (`core`, `alloc`, `std`) pass for this target as well.
 Building the target itself requires pauthtest-enabled sysroot based on a custom
 pauthtest-enabled musl to be present on the system. In order to fulfill the
 requirement please follow the build instructions at [build scripts
-repo](https://github.com/access-softek/pauth-toolchain-build-scripts).
-Rust compiler will make assumptions about the location of the PAC toolchain, so
-if it is not installed in the standard location: `/opt/llvm-pauth` it is
-necessary to provide the location through `LLVM_PAUTH` environment variable.
-This is a limitation that is being investigated on.
+repo](https://github.com/access-softek/pauth-toolchain-build-scripts). Please
+provide the sysroot location via the `PAUTHTEST_SYSROOT` environment variable. A
+Clang installation is also required. The Rust build system assumes that `clang`
+is available on the `PATH`.
 
 Introduction of `aarch64-unknown-linux-pauthtest` target needs to be propagated
 to some crates, so that they can correctly recognise and handle it.

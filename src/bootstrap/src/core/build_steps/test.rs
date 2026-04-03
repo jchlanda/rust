@@ -3849,12 +3849,14 @@ impl Step for TestHelpers {
                 return;
             }
 
-            let root = std::env::var("LLVM_PAUTH").unwrap_or_else(|_| "/opt/llvm-pauth".into());
-            let clang = format!("{root}/bin/clang");
-
-            let status = Command::new(&clang)
+            let pauthtest_sysroot = std::env::var("PAUTHTEST_SYSROOT").unwrap_or_default();
+            let status = Command::new("clang")
                 .arg("-target")
                 .arg(&target.triple)
+                .arg("-fuse-ld=lld")
+                .arg(format!("--sysroot={}", pauthtest_sysroot))
+                .arg("-nostdlib")
+                .arg("-march=armv8.3-a")
                 .arg("-fPIC")
                 .arg("-shared")
                 .arg("-O0") // Use O0 to match what static library is compiled at.
@@ -3862,10 +3864,10 @@ impl Step for TestHelpers {
                 .arg(&so)
                 .arg(&src)
                 .status()
-                .expect("Failed to run clang for pauthtest .so");
+                .expect("Failed to run pauthtest clang for librust_test_helpers.so");
 
             if !status.success() {
-                panic!("Linking of pauthtest .so failed");
+                panic!("Linking of pauthtest librust_test_helpers.so failed");
             }
         }
     }
