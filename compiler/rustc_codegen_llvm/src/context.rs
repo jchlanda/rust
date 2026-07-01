@@ -727,21 +727,21 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
         }
     }
 
-    pub(crate) fn add_ptrauth_elf_got_flag(&self) {
+    pub(crate) fn add_ptrauth_elf_got_flag(&self, elf_got_flag: u32) {
         llvm::add_module_flag_u32(
             self.llmod,
             llvm::ModuleFlagMergeBehavior::Error,
             "ptrauth-elf-got",
-            1,
+            elf_got_flag,
         );
     }
 
-    pub(crate) fn add_ptrauth_sign_personality_flag(&self) {
+    pub(crate) fn add_ptrauth_sign_personality_flag(&self, sign_personality_flag: u32) {
         llvm::add_module_flag_u32(
             self.llmod,
             llvm::ModuleFlagMergeBehavior::Error,
             "ptrauth-sign-personality",
-            1,
+            sign_personality_flag,
         );
     }
 

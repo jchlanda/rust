@@ -25,7 +25,7 @@ use rustc_middle::mono::Visibility;
 use rustc_middle::ty::TyCtxt;
 use rustc_session::config::{DebugInfo, Offload};
 use rustc_span::Symbol;
-use rustc_target::spec::SanitizerSet;
+use rustc_target::spec::{Arch, BinaryFormat, Os, SanitizerSet};
 
 use super::ModuleLlvm;
 use crate::attributes;
@@ -152,21 +152,28 @@ pub(crate) fn compile_codegen_unit(
                 cx.add_objc_module_flags();
             }
 
-            if cx.sess().pointer_authentication() {
-                let cfg = cx.sess().pointer_auth_config.as_ref().unwrap();
-
-                let aarch64_elf_pauthabi_version =
-                    cfg.calculate_pauth_abi_version(&cx.sess().target);
-                if aarch64_elf_pauthabi_version != 0 {
+            if cx.sess().target.arch == Arch::AArch64 {
+                if cx.sess().target.binary_format == BinaryFormat::Elf {
+                    let elf_got_flag = if let Some(cfg) = cx.sess().pointer_auth_config.as_ref() {
+                        cfg.elf_got as u32
+                    } else {
+                        0
+                    };
+                    cx.add_ptrauth_elf_got_flag(elf_got_flag);
+                }
+                if cx.sess().target.options.os == Os::Linux {
+                    let sign_personality_flag =
+                        if cx.sess().pointer_authentication_functions() { 1 } else { 0 };
+                    let aarch64_elf_pauthabi_version =
+                        if let Some(cfg) = cx.sess().pointer_auth_config.as_ref() {
+                            cfg.calculate_pauth_abi_version(&cx.sess().target)
+                        } else {
+                            0
+                        };
                     cx.add_ptrauth_pauthabi_version_and_platform_flags(
                         aarch64_elf_pauthabi_version,
                     );
-                }
-                if cfg.elf_got {
-                    cx.add_ptrauth_elf_got_flag();
-                }
-                if cx.sess().pointer_authentication_functions() {
-                    cx.add_ptrauth_sign_personality_flag();
+                    cx.add_ptrauth_sign_personality_flag(sign_personality_flag);
                 }
             }
 

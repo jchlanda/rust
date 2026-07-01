@@ -188,7 +188,9 @@ impl PointerAuthConfig {
         };
     }
     pub fn calculate_pauth_abi_version(&self, target: &Target) -> u32 {
-        assert!(target.cfg_abi == CfgAbi::Pauthtest);
+        if target.cfg_abi != CfgAbi::Pauthtest {
+            return 0;
+        }
         // Bit positions of version flags for AARCH64_PAUTH_PLATFORM_LLVM_LINUX.
         // NOTE: The enum values must stay in sync with clang, see:
         // <llvm_root>/llvm/include/llvm/BinaryFormat/ELF.h
