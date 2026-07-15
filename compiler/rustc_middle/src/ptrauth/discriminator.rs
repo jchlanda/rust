@@ -71,10 +71,11 @@ This implementation intentionally approximates Clang's behavior for extern "C"
 function types only. It does NOT attempt to model full type system rules.
 */
 
-use rustc_abi::ExternAbi;
+use rustc_abi::{CanonAbi, ExternAbi};
 use rustc_middle::ty::{self, Instance, Ty, TyCtxt, Unnormalized};
 use rustc_session::PointerAuthSchema;
 use rustc_span::sym;
+use rustc_target::callconv::FnAbi;
 
 use crate::ptrauth::llvm_siphash::llvm_pointer_auth_stable_siphash;
 
@@ -145,6 +146,11 @@ impl<'tcx> FnPtrDiscriminatorSource<'tcx> for Instance<'tcx> {
 impl<'tcx> FnPtrDiscriminatorSource<'tcx> for ty::FnSig<'tcx> {
     fn discriminator_input(self, _: TyCtxt<'tcx>) -> Option<FnPtrTypeDiscriminatorInput<'tcx>> {
         Some(FnPtrTypeDiscriminatorInput::from_sig(self))
+    }
+}
+impl<'tcx> FnPtrDiscriminatorSource<'tcx> for &FnAbi<'_, Ty<'tcx>> {
+    fn discriminator_input(self, tcx: TyCtxt<'tcx>) -> Option<FnPtrTypeDiscriminatorInput<'tcx>> {
+        Some(FnPtrTypeDiscriminatorInput::from_fn_abi(tcx, self))
     }
 }
 
@@ -221,6 +227,28 @@ impl<'tcx> FnPtrTypeDiscriminatorInput<'tcx> {
             output: sig.output(),
             abi: header.abi(),
             c_variadic: header.c_variadic(),
+        }
+    }
+
+    fn from_fn_abi<'a>(tcx: TyCtxt<'tcx>, fn_abi: &'a FnAbi<'a, Ty<'tcx>>) -> Self {
+        assert!(fn_abi.fixed_count as usize <= fn_abi.args.len());
+        let inputs = tcx.arena.alloc_from_iter(
+            fn_abi.args[..fn_abi.fixed_count as usize].iter().map(|arg| arg.layout.ty),
+        );
+        // This is a best effort translation from CanonAbi to ExternAbi, we are only interested in
+        // supporting extern "C" and extern "System".
+        let matched_abi = match fn_abi.conv {
+            CanonAbi::C => ExternAbi::C { unwind: fn_abi.can_unwind },
+            // Everything else is definitely not C/System for the purposes of
+            // discriminator computation, co use Rust as a catch all case.
+            _ => ExternAbi::Rust,
+        };
+
+        Self {
+            inputs,
+            output: fn_abi.ret.layout.ty,
+            abi: matched_abi,
+            c_variadic: fn_abi.c_variadic,
         }
     }
 }
