@@ -17,6 +17,7 @@ use rustc_data_structures::small_c_str::SmallCStr;
 use rustc_hir::attrs::{AttributeKind, UnrollAttr};
 use rustc_hir::def_id::DefId;
 use rustc_middle::middle::codegen_fn_attrs::CodegenFnAttrs;
+use rustc_middle::ptrauth::compute_fn_ptr_type_discriminator_for;
 use rustc_middle::ty::layout::{
     FnAbiError, FnAbiOfHelpers, FnAbiRequest, HasTypingEnv, LayoutError, LayoutOfHelpers,
     TyAndLayout,
@@ -2086,7 +2087,8 @@ impl<'a, 'll, 'tcx> Builder<'a, 'll, 'tcx> {
 
         let key: u32 = self.sess().pointer_authentication_fn_ptr_key().unwrap() as u32;
         let discriminator = if self.sess().pointer_authentication_fn_ptr_type_discrimination() {
-            fn_abi?.ptrauth_type_discriminator
+            fn_abi.and_then(|abi| compute_fn_ptr_type_discriminator_for(self.tcx, abi)).unwrap_or(0)
+                as u64
         } else {
             0
         };
