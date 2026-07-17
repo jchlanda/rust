@@ -55,8 +55,6 @@ pub(crate) struct ParserAnyMacro<'a, 'b> {
     lint_node_id: NodeId,
     is_trailing_mac: bool,
     arm_span: Span,
-    /// Whether or not this macro is defined in the current crate
-    is_local: bool,
     bindings: &'b [MacroRule],
     matched_rule_bindings: &'b [MatcherLoc],
 }
@@ -73,7 +71,6 @@ impl<'a, 'b> ParserAnyMacro<'a, 'b> {
             lint_node_id,
             arm_span,
             is_trailing_mac,
-            is_local,
             bindings,
             matched_rule_bindings,
         } = *self;
@@ -99,14 +96,12 @@ impl<'a, 'b> ParserAnyMacro<'a, 'b> {
         // `macro_rules! m { () => { panic!(); } }` isn't parsed by `.parse_expr()`,
         // but `m!()` is allowed in expression positions (cf. issue #34706).
         if kind == AstFragmentKind::Expr && parser.token == token::Semi {
-            if is_local {
-                parser.psess.buffer_lint(
-                    SEMICOLON_IN_EXPRESSIONS_FROM_MACROS,
-                    parser.token.span,
-                    lint_node_id,
-                    diagnostics::TrailingMacro { is_trailing: is_trailing_mac, name: macro_ident },
-                );
-            }
+            parser.psess.buffer_lint(
+                SEMICOLON_IN_EXPRESSIONS_FROM_MACROS,
+                parser.token.span,
+                lint_node_id,
+                diagnostics::TrailingMacro { is_trailing: is_trailing_mac, name: macro_ident },
+            );
             parser.bump();
         }
 
@@ -122,7 +117,6 @@ impl<'a, 'b> ParserAnyMacro<'a, 'b> {
         tts: TokenStream,
         site_span: Span,
         arm_span: Span,
-        is_local: bool,
         macro_ident: Ident,
         // bindings and lhs is for diagnostics
         bindings: &'b [MacroRule],
@@ -139,7 +133,6 @@ impl<'a, 'b> ParserAnyMacro<'a, 'b> {
             lint_node_id: cx.current_expansion.lint_node_id,
             is_trailing_mac: cx.current_expansion.is_trailing_mac,
             arm_span,
-            is_local,
             bindings,
             matched_rule_bindings,
         }
@@ -360,10 +353,18 @@ fn trace_macros_note(cx_expansions: &mut FxIndexMap<Span, Vec<String>>, sp: Span
 
 pub(super) trait Tracker<'matcher> {
     /// Provide context on the arm that's about to be matched.
-    fn prepare(&mut self, which_matcher: WhichMatcher);
+    fn prepare(&mut self, which_matcher: WhichMatcher, matcher: &'matcher [MatcherLoc]);
 
     /// This is called before trying to match next MatcherLoc on the current token.
     fn before_match_loc(&mut self, parser: &TtParser, matcher: &'matcher MatcherLoc);
+
+    /// A [`MatcherLoc`] successfully consumed input from the parser.
+    ///
+    /// This is called for [`MatcherLoc::Token`] and [`MatcherLoc::SequenceSep`], which consume
+    /// single tokens, when they successfully match [`Parser::token`]. It is also called for
+    /// [`MatcherLoc::MetaVarDecl`] when non-terminal parsing is guaranteed to occur (i.e. after
+    /// [`Parser::nonterminal_may_begin_with()`] returns `true`).
+    fn matched_one(&mut self, parser: &Parser<'_>, loc_index: usize);
 
     /// This is called after an arm has been parsed, either successfully or unsuccessfully. When
     /// this is called, `before_match_loc` was called at least once (with a `MatcherLoc::Eof`).
@@ -381,12 +382,7 @@ pub(super) trait Tracker<'matcher> {
     /// An ambiguity error occurred.
     ///
     /// The parser will return [`NamedParseResult::Ambiguity`] after calling this.
-    fn ambiguity(
-        &mut self,
-        parser: &Parser<'_>,
-        bb_locs: impl IntoIterator<Item = &'matcher MatcherLoc>,
-        next_locs: impl IntoIterator<Item = &'matcher MatcherLoc>,
-    );
+    fn ambiguity(&mut self, parser: &Parser<'_>);
 
     /// For tracing.
     fn description() -> &'static str;
@@ -399,17 +395,13 @@ pub(super) trait Tracker<'matcher> {
 pub(super) struct NoopTracker;
 
 impl<'matcher> Tracker<'matcher> for NoopTracker {
-    fn prepare(&mut self, _which_matcher: WhichMatcher) {}
+    fn prepare(&mut self, _which_matcher: WhichMatcher, _matcher: &'matcher [MatcherLoc]) {}
 
     fn before_match_loc(&mut self, _parser: &TtParser, _matcher: &'matcher MatcherLoc) {}
 
-    fn ambiguity(
-        &mut self,
-        _parser: &Parser<'_>,
-        _bb_locs: impl IntoIterator<Item = &'matcher MatcherLoc>,
-        _next_locs: impl IntoIterator<Item = &'matcher MatcherLoc>,
-    ) {
-    }
+    fn matched_one(&mut self, _parser: &Parser<'_>, _loc_index: usize) {}
+
+    fn ambiguity(&mut self, _parser: &Parser<'_>) {}
 
     fn after_arm(&mut self, _result: &NamedParseResult) {}
 
@@ -472,13 +464,12 @@ fn expand_macro<'cx, 'a: 'cx>(
                 trace_macros_note(&mut cx.expansions, sp, msg);
             }
 
-            let is_local = is_defined_in_current_crate(node_id);
-            if is_local {
+            if is_defined_in_current_crate(node_id) {
                 cx.resolver.record_macro_rule_usage(node_id, rule_index);
             }
 
             // Let the context choose how to interpret the result. Weird, but useful for X-macros.
-            Box::new(ParserAnyMacro::from_tts(cx, tts, sp, arm_span, is_local, name, rules, lhs))
+            Box::new(ParserAnyMacro::from_tts(cx, tts, sp, arm_span, name, rules, lhs))
         }
         Err(CanRetry::No(guar)) => {
             debug!("Will not retry matching as an error was emitted already");
@@ -637,7 +628,7 @@ pub(super) fn try_match_macro<'matcher, T: Tracker<'matcher>>(
         // are not recorded. On the first `Success(..)`ful matcher, the spans are merged.
         let mut gated_spans_snapshot = mem::take(&mut *psess.gated_spans.spans.borrow_mut());
 
-        track.prepare(WhichMatcher::FOR_FUNC);
+        track.prepare(WhichMatcher::FOR_FUNC, lhs);
         let result = tt_parser.parse_tt(&mut Cow::Borrowed(&parser), lhs, track);
         track.after_arm(&result);
 
@@ -695,7 +686,7 @@ pub(super) fn try_match_macro_attr<'matcher, T: Tracker<'matcher>>(
 
         let mut gated_spans_snapshot = mem::take(&mut *psess.gated_spans.spans.borrow_mut());
 
-        track.prepare(WhichMatcher::Args);
+        track.prepare(WhichMatcher::Args, args);
         let result = tt_parser.parse_tt(&mut Cow::Borrowed(&args_parser), args, track);
         track.after_arm(&result);
 
@@ -709,7 +700,7 @@ pub(super) fn try_match_macro_attr<'matcher, T: Tracker<'matcher>>(
             ErrorReported(guar) => return Err(CanRetry::No(guar)),
         };
 
-        track.prepare(WhichMatcher::Body);
+        track.prepare(WhichMatcher::Body, body);
         let result = tt_parser.parse_tt(&mut Cow::Borrowed(&body_parser), body, track);
         track.after_arm(&result);
 
@@ -750,7 +741,7 @@ pub(super) fn try_match_macro_derive<'matcher, T: Tracker<'matcher>>(
 
         let mut gated_spans_snapshot = mem::take(&mut *psess.gated_spans.spans.borrow_mut());
 
-        track.prepare(WhichMatcher::FOR_DERIVE);
+        track.prepare(WhichMatcher::FOR_DERIVE, body);
         let result = tt_parser.parse_tt(&mut Cow::Borrowed(&body_parser), body, track);
         track.after_arm(&result);
 

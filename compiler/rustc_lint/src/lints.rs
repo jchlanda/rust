@@ -319,7 +319,7 @@ impl<'a> Diagnostic<'a, ()> for BuiltinTypeAliasBounds<'_> {
                 see issue #112792 <https://github.com/rust-lang/rust/issues/112792> for more information"
             ));
         if self.enable_feat_help {
-            diag.help(msg!("add `#![feature(lazy_type_alias)]` to the crate attributes to enable the desired semantics"));
+            diag.help(msg!("add `#![feature(checked_type_aliases)]` to the crate attributes to enable the desired semantics"));
         }
 
         // We perform the walk in here instead of in `<TypeAliasBounds as LateLintPass>` to
@@ -600,8 +600,6 @@ pub(crate) struct BuiltinDerefNullptr {
     #[label("this code causes undefined behavior when executed")]
     pub label: Span,
 }
-
-// FIXME: migrate fluent::lint::builtin_asm_labels
 
 #[derive(Diagnostic)]
 pub(crate) enum BuiltinSpecialModuleNameUsed {
@@ -2728,7 +2726,7 @@ pub(crate) enum MutRefSugg {
 
 #[derive(Subdiagnostic)]
 #[suggestion(
-    "this type already provides \"interior mutability\", so its binding doesn't need to be declared as mutable",
+    "this type already provides \"interior mutability\", so its binding doesn't need to be declared as mutable when borrowed with a shared reference",
     style = "verbose",
     applicability = "maybe-incorrect",
     code = ""

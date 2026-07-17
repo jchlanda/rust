@@ -493,8 +493,11 @@ pub fn maybe_create_entry_wrapper<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
         // We want to create the wrapper only when the codegen unit is the primary one
         return None;
     }
-
-    let main_llfn = cx.get_fn_addr(instance, cx.sess().pointer_authentication_functions());
+    // No function pointer signing / type discriminator is needed here. Although `get_fn_addr` is
+    // used to obtain function pointers, both the user's `main` and `LangItem::Start` use the Rust
+    // ABI (currently pointer authentication is only supported for C/System ABI). The same applies
+    // to the logic in `create_entry_fn` further below.
+    let main_llfn = cx.get_fn_addr(instance, None);
 
     let entry_fn = create_entry_fn::<Bx>(cx, main_llfn, main_def_id, entry_type);
     return Some(entry_fn);
@@ -555,8 +558,8 @@ pub fn maybe_create_entry_wrapper<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
                 cx.tcx().mk_args(&[main_ret_ty.into()]),
                 DUMMY_SP,
             );
-            let start_fn =
-                cx.get_fn_addr(start_instance, cx.sess().pointer_authentication_functions());
+
+            let start_fn = cx.get_fn_addr(start_instance, None);
 
             let i8_ty = cx.type_i8();
             let arg_sigpipe = bx.const_u8(sigpipe);
@@ -893,12 +896,8 @@ pub fn is_call_from_compiler_builtins_to_upstream_monomorphization<'tcx>(
     tcx: TyCtxt<'tcx>,
     instance: Instance<'tcx>,
 ) -> bool {
-    fn is_llvm_intrinsic(tcx: TyCtxt<'_>, def_id: DefId) -> bool {
-        if let Some(name) = tcx.codegen_fn_attrs(def_id).symbol_name {
-            name.as_str().starts_with("llvm.")
-        } else {
-            false
-        }
+    if let ty::InstanceKind::LlvmIntrinsic(_) = instance.def {
+        return false;
     }
 
     fn is_extern_call_to_local_crate<'tcx>(tcx: TyCtxt<'tcx>, instance: Instance<'tcx>) -> bool {
@@ -911,7 +910,6 @@ pub fn is_call_from_compiler_builtins_to_upstream_monomorphization<'tcx>(
     let def_id = instance.def_id();
     !def_id.is_local()
         && tcx.is_compiler_builtins(LOCAL_CRATE)
-        && !is_llvm_intrinsic(tcx, def_id)
         && !tcx.should_codegen_locally(instance)
         && !is_extern_call_to_local_crate(tcx, instance)
 }

@@ -1192,7 +1192,7 @@ impl UnreachablePub {
                 && let parent_parent = cx
                     .tcx
                     .parent_module_from_def_id(cx.tcx.parent_module_from_def_id(def_id).into())
-                && *restricted_did == parent_parent.to_local_def_id()
+                && *restricted_did == parent_parent
                 && !restricted_did.to_def_id().is_crate_root()
             {
                 "pub(super)"
@@ -1317,8 +1317,8 @@ impl<'tcx> LateLintPass<'tcx> for TypeAliasBounds {
             return;
         }
 
-        // Bounds of lazy type aliases and TAITs are respected.
-        if cx.tcx.type_alias_is_lazy(item.owner_id) {
+        // Bounds of checked type aliases and TAITs are respected.
+        if cx.tcx.type_alias_is_checked(item.owner_id) {
             return;
         }
 

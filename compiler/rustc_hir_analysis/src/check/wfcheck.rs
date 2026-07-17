@@ -167,10 +167,10 @@ where
 
     let mut wfcx = WfCheckingCtxt { ocx, body_def_id, param_env };
 
-    // As of now, bounds are only checked on lazy type aliases, they're ignored for most type
+    // As of now, bounds are only enforced on checked type aliases, they're ignored for most type
     // aliases. So, only check for false global bounds if we're not ignoring bounds altogether.
     let ignore_bounds =
-        tcx.def_kind(body_def_id) == DefKind::TyAlias && !tcx.type_alias_is_lazy(body_def_id);
+        tcx.def_kind(body_def_id) == DefKind::TyAlias && !tcx.type_alias_is_checked(body_def_id);
 
     if !ignore_bounds && !tcx.features().trivial_bounds() {
         wfcx.check_false_global_bounds()
@@ -1169,7 +1169,7 @@ fn check_eiis_fn(tcx: TyCtxt<'_>, def_id: LocalDefId) {
                     continue;
                 }
             }
-            EiiImplResolution::Known(decl) => (decl.foreign_item, decl.name.name),
+            EiiImplResolution::Known(def_id) => (*def_id, tcx.item_name(*def_id)),
             EiiImplResolution::Error(_eg) => continue,
         };
 
@@ -1196,7 +1196,7 @@ fn check_eiis_static<'tcx>(tcx: TyCtxt<'tcx>, def_id: LocalDefId, ty: Ty<'tcx>) 
                     continue;
                 }
             }
-            EiiImplResolution::Known(decl) => (decl.foreign_item, decl.name.name),
+            EiiImplResolution::Known(def_id) => (*def_id, tcx.item_name(*def_id)),
             EiiImplResolution::Error(_eg) => continue,
         };
 
