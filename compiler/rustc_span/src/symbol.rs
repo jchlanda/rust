@@ -2142,6 +2142,7 @@ symbols! {
         trait_ty,
         trait_upcasting,
         transmute,
+        transmute_copy,
         transmute_generic_consts,
         transmute_opts,
         transmute_trait,

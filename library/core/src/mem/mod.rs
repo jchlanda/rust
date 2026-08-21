@@ -35,8 +35,9 @@ use crate::clone::TrivialClone;
 use crate::cmp::Ordering;
 use crate::marker::{Destruct, DiscriminantKind};
 use crate::panic::const_assert;
-use crate::ub_checks::assert_unsafe_precondition;
-use crate::{clone, cmp, fmt, hash, intrinsics, ptr};
+// use crate::ub_checks::assert_unsafe_precondition;
+// use crate::{clone, cmp, fmt, hash, intrinsics, ptr};
+use crate::{clone, cmp, fmt, hash, intrinsics};
 
 mod alignment;
 #[unstable(feature = "ptr_alignment_type", issue = "102070")]
@@ -1137,35 +1138,38 @@ pub const fn copy<T: Copy>(x: &T) -> T {
 ///     u32::from_ne_bytes(*bytes.first_chunk().unwrap()),
 /// );
 /// ```
-#[inline]
-#[must_use]
-#[track_caller]
-#[stable(feature = "rust1", since = "1.0.0")]
-#[rustc_const_stable(feature = "const_transmute_copy", since = "1.74.0")]
-pub const unsafe fn transmute_copy<Src: ?Sized, Dst>(src: &Src) -> Dst {
-    // library UB because it's possible for the `Src` to be only a subset of the allocation
-    // and thus for a failure to not be immediate language UB
-    assert_unsafe_precondition!(
-        check_library_ub,
-        "cannot transmute_copy if Dst is larger than Src",
-        (
-            src_size: usize = size_of_val::<Src>(src),
-            dst_size: usize = Dst::SIZE,
-        ) => src_size >= dst_size
-    );
-
-    // If Dst has a higher alignment requirement, src might not be suitably aligned.
-    if align_of::<Dst>() > align_of_val::<Src>(src) {
-        // SAFETY: `src` is a reference which is guaranteed to be valid for reads.
-        // The caller must guarantee that the actual transmutation is safe.
-        unsafe { ptr::read_unaligned(src as *const Src as *const Dst) }
-    } else {
-        // SAFETY: `src` is a reference which is guaranteed to be valid for reads.
-        // We just checked that `src as *const Dst` was properly aligned.
-        // The caller must guarantee that the actual transmutation is safe.
-        unsafe { ptr::read(src as *const Src as *const Dst) }
-    }
-}
+// #[inline]
+// #[must_use]
+// #[track_caller]
+// #[stable(feature = "rust1", since = "1.0.0")]
+// #[rustc_const_stable(feature = "const_transmute_copy", since = "1.74.0")]
+// pub const unsafe fn transmute_copy<Src: ?Sized, Dst>(src: &Src) -> Dst {
+//     // library UB because it's possible for the `Src` to be only a subset of the allocation
+//     // and thus for a failure to not be immediate language UB
+//     assert_unsafe_precondition!(
+//         check_library_ub,
+//         "cannot transmute_copy if Dst is larger than Src",
+//         (
+//             src_size: usize = size_of_val::<Src>(src),
+//             dst_size: usize = Dst::SIZE,
+//         ) => src_size >= dst_size
+//     );
+//
+//     // If Dst has a higher alignment requirement, src might not be suitably aligned.
+//     if align_of::<Dst>() > align_of_val::<Src>(src) {
+//         // SAFETY: `src` is a reference which is guaranteed to be valid for reads.
+//         // The caller must guarantee that the actual transmutation is safe.
+//         unsafe { ptr::read_unaligned(src as *const Src as *const Dst) }
+//     } else {
+//         // SAFETY: `src` is a reference which is guaranteed to be valid for reads.
+//         // We just checked that `src as *const Dst` was properly aligned.
+//         // The caller must guarantee that the actual transmutation is safe.
+//         unsafe { ptr::read(src as *const Src as *const Dst) }
+//     }
+// }
+#[stable(feature = "transmute_copy", since = "1.0.0")]
+#[doc(inline)]
+pub use crate::intrinsics::transmute_copy;
 
 /// Like [`transmute`], but only initializes the "common prefix" of the first
 /// `min(size_of::<Src>(), size_of::<Dst>())` bytes of the destination from the

@@ -974,6 +974,43 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         Some(imm)
     }
 
+    fn ptrauth_codegen_transmute_copy_from_unsized_place(
+        &mut self,
+        bx: &mut Bx,
+        src: PlaceRef<'tcx, Bx::Value>,
+        dst: TyAndLayout<'tcx>,
+    ) -> OperandValue<Bx::Value> {
+        match src.layout.ty.kind() {
+            ty::Slice(elem_ty) => {
+                let elem_layout = bx.layout_of(*elem_ty);
+
+                if elem_layout.size != dst.size {
+                    return self.codegen_transmute_copy_from_raw_place(bx, src, dst);
+                }
+
+                let elem = src.project_index(bx, bx.cx().const_usize(0));
+                let operand = bx.load_operand(elem);
+
+                self.ptrauth_codegen_transmute_operand(bx, operand, dst)
+            }
+
+            _ => self.codegen_transmute_copy_from_raw_place(bx, src, dst),
+        }
+    }
+
+    fn codegen_transmute_copy_from_raw_place(
+        &mut self,
+        bx: &mut Bx,
+        src: PlaceRef<'tcx, Bx::Value>,
+        dst: TyAndLayout<'tcx>,
+    ) -> OperandValue<Bx::Value> {
+        let data_ptr = src.val.llval;
+
+        let dst_place = PlaceValue::new_sized(data_ptr, dst.align.abi).with_type(dst);
+
+        bx.load_operand(dst_place).val
+    }
+
     pub(crate) fn codegen_rvalue_operand(
         &mut self,
         bx: &mut Bx,
@@ -1117,6 +1154,84 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                             bug!("Unsupported cast of {operand:?} to {cast:?}");
                         })
                     }
+                    mir::CastKind::TransmuteCopy => {
+                        match operand.layout.ty.kind() {
+                            ty::Ref(_, inner, _) => {
+                                let src_layout = bx.layout_of(*inner);
+
+                                let place = operand
+                                    .val
+                                    .deref(src_layout.align.abi)
+                                    .with_type(src_layout);
+
+                                if src_layout.is_unsized() {
+                                    let val = if self
+                                        .cx
+                                        .tcx()
+                                        .sess
+                                        .pointer_authentication_fn_ptr_type_discrimination()
+                                    {
+                                        self.ptrauth_codegen_transmute_copy_from_unsized_place(
+                                            bx,
+                                            place,
+                                            cast,
+                                        )
+                                    } else {
+                                        self.codegen_transmute_copy_from_raw_place(
+                                            bx,
+                                            place,
+                                            cast,
+                                        )
+                                    };
+
+                                    return OperandRef {
+                                        val,
+                                        layout: cast,
+                                        move_annotation: None,
+                                    };
+                                }
+
+                                let src = bx.load_operand(place);
+
+                                let val = if self
+                                    .cx
+                                    .tcx()
+                                    .sess
+                                    .pointer_authentication_fn_ptr_type_discrimination()
+                                {
+                                    self.ptrauth_codegen_transmute_operand(bx, src, cast)
+                                } else {
+                                    self.codegen_transmute_operand(bx, src, cast)
+                                };
+
+                                return OperandRef {
+                                    val,
+                                    layout: cast,
+                                    move_annotation: None,
+                                };
+                            }
+
+                            _ => {
+                                let val = if self
+                                    .cx
+                                    .tcx()
+                                    .sess
+                                    .pointer_authentication_fn_ptr_type_discrimination()
+                                {
+                                    self.ptrauth_codegen_transmute_operand(bx, operand, cast)
+                                } else {
+                                    self.codegen_transmute_operand(bx, operand, cast)
+                                };
+
+                                return OperandRef {
+                                    val,
+                                    layout: cast,
+                                    move_annotation: None,
+                                };
+                            }
+                        }
+                    }
+
                     mir::CastKind::Transmute | mir::CastKind::BoxDerefTransmute | mir::CastKind::Subtype => {
                         if self.cx.tcx().sess.pointer_authentication_fn_ptr_type_discrimination() {
                             self.ptrauth_codegen_transmute_operand(bx, operand, cast)

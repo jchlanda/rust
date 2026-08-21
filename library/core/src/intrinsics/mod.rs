@@ -861,6 +861,15 @@ pub const fn forget<T: ?Sized>(_: T);
 #[rustc_intrinsic]
 pub const unsafe fn transmute<Src, Dst>(src: Src) -> Dst;
 
+/// FIXME: JKB: Document and unhack.
+#[stable(feature = "transmute_copy", since = "1.0.0")]
+#[rustc_allowed_through_unstable_modules = "import this function via `std::mem` instead"]
+#[rustc_const_stable(feature = "const_transmute_copy", since = "1.56.0")]
+#[rustc_nounwind]
+#[rustc_intrinsic]
+//pub const unsafe fn transmute_copy<Src, Dst>(src: &Src) -> Dst;
+pub const unsafe fn transmute_copy<Src: ?Sized, Dst>(src: &Src) -> Dst;
+
 /// Like [`transmute`], but even less checked at compile-time: rather than
 /// giving an error for `size_of::<Src>() != size_of::<Dst>()`, it's
 /// **Undefined Behavior** at runtime.

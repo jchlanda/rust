@@ -385,7 +385,12 @@ pub mod mem {
 
     #[rustc_nounwind]
     #[rustc_intrinsic]
+    pub const unsafe fn transmute_copy<Src, Dst>(src: &Src) -> Dst;
+
+    #[rustc_nounwind]
+    #[rustc_intrinsic]
     pub const fn size_of<T>() -> usize;
+
     #[rustc_nounwind]
     #[rustc_intrinsic]
     pub const fn align_of<T>() -> usize;

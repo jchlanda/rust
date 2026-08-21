@@ -289,6 +289,29 @@ impl<'tcx> crate::MirPass<'tcx> for LowerIntrinsics {
                             terminator.kind = TerminatorKind::Unreachable;
                         }
                     }
+                    sym::transmute_copy => {
+                        let dst_ty = destination.ty(local_decls, tcx).ty;
+                        let Ok([arg]) = take_array(args) else {
+                            span_bug!(
+                                terminator.source_info.span,
+                                "Wrong number of arguments for transmute_copy intrinsic",
+                            );
+                        };
+
+                        block.statements.push(Statement::new(
+                            terminator.source_info,
+                            StatementKind::Assign(Box::new((
+                                *destination,
+                                Rvalue::Cast(CastKind::TransmuteCopy, arg.node, dst_ty),
+                            ))),
+                        ));
+
+                        if let Some(target) = *target {
+                            terminator.kind = TerminatorKind::Goto { target };
+                        } else {
+                            terminator.kind = TerminatorKind::Unreachable;
+                        }
+                    }
                     sym::aggregate_raw_ptr => {
                         let Ok([data, meta]) = take_array(args) else {
                             span_bug!(

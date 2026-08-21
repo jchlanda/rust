@@ -1386,8 +1386,8 @@ impl<'a, 'tcx> Visitor<'tcx> for TypeChecker<'a, 'tcx> {
                             );
                         }
                     }
-                    CastKind::Transmute | CastKind::BoxDerefTransmute => {
-                        // Unlike `mem::transmute`, a MIR `Transmute` is well-formed
+                    CastKind::Transmute | CastKind::TransmuteCopy | CastKind::BoxDerefTransmute => {
+                        // Unlike `mem::transmute`, MIR transmute-like casts are well-formed
                         // for any two `Sized` types, just potentially UB to run.
 
                         if !self

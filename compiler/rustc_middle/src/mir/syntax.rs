@@ -1496,6 +1496,8 @@ pub enum CastKind {
     /// MIR is well-formed if the input and output types have different sizes,
     /// but running a transmute between differently-sized types is UB.
     Transmute,
+    /// FIXME: JKB: Document.
+    TransmuteCopy,
     /// A special transmute used by elaborated `box` deref's to turn the inner pointer into a raw
     /// pointer. This is almost equivalent to a regular transmute except that if the input would not
     /// be valid as `Box<T>`, the cast is UB. Backends that do not care about UB detection can treat

@@ -189,7 +189,10 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                 }
             }
 
-            CastKind::Transmute | CastKind::Subtype | CastKind::BoxDerefTransmute => {
+            CastKind::Transmute
+            | CastKind::TransmuteCopy
+            | CastKind::Subtype
+            | CastKind::BoxDerefTransmute => {
                 assert!(src.layout.is_sized());
                 assert!(dest.layout.is_sized());
                 assert_eq!(cast_ty, dest.layout.ty); // we otherwise ignore `cast_ty` enirely...
