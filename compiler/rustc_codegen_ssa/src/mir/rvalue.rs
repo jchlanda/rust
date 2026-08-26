@@ -102,8 +102,8 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
     }
 
     /// Lowers a transmute of an SSA operand while preserving pointer authentication semantics. It
-    /// ensuring that when a function pointer is transmuted between two types that map to
-    /// different discriminators, the resulting pointer is re-signed.
+    /// ensures that when a function pointer is transmuted between two types that map to different
+    /// discriminators, the resulting pointer is re-signed.
     ///
     /// A normal operand transmute treats the aggregate as an opaque value, which loses the Rust
     /// type information needed to identify embedded function pointers. Such cases are instead
@@ -126,6 +126,9 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
 
         let src_semantic = self.ptrauth_canonicalize_fn_ptr_layout(operand.layout);
         let dst_semantic = self.ptrauth_canonicalize_fn_ptr_layout(cast);
+        if src_semantic == None && dst_semantic == None {
+            return val;
+        }
 
         let info = TransmuteInfo {
             src_ty: src_semantic.map_or(operand.layout.ty, |(ty, _)| ty),
@@ -175,9 +178,11 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         dst_layout: TyAndLayout<'tcx>,
     ) -> OperandValue<Bx::Value> {
         let src_place = PlaceRef::alloca(bx, src.layout);
+        src_place.storage_live(bx);
         src.store_with_annotation(bx, src_place);
 
         let dst_place = PlaceRef::alloca(bx, dst_layout);
+        dst_place.storage_live(bx);
 
         self.ptrauth_codegen_transmute_place(
             bx,
@@ -189,7 +194,12 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             dst_place,
         );
 
-        bx.load_operand(dst_place.val.with_type(dst_layout)).val
+        let val = bx.load_operand(dst_place.val.with_type(dst_layout)).val;
+
+        dst_place.storage_dead(bx);
+        src_place.storage_dead(bx);
+
+        val
     }
 
     /// Returns whether `layout` contains a function pointer.
@@ -203,8 +213,23 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         }
 
         match layout.ty.kind() {
-            ty::Tuple(_) | ty::Adt(..) => (0..layout.fields.count())
+            ty::Tuple(_) => (0..layout.fields.count())
                 .any(|i| self.ptrauth_transmute_contains_fn_ptr(layout.field(self.cx, i))),
+
+            ty::Adt(..) => match &layout.variants {
+                // For multi-variant enums compiler can't know statically which variant is live, so
+                // check every variant's payload.
+                abi::Variants::Multiple { variants, .. } => variants.indices().any(|variant_idx| {
+                    let variant_layout = layout.for_variant(self.cx, variant_idx);
+                    (0..variant_layout.fields.count()).any(|i| {
+                        self.ptrauth_transmute_contains_fn_ptr(variant_layout.field(self.cx, i))
+                    })
+                }),
+                // For non-multiple variants `layout.fields` describes the (one) live field set
+                // directly.
+                _ => (0..layout.fields.count())
+                    .any(|i| self.ptrauth_transmute_contains_fn_ptr(layout.field(self.cx, i))),
+            },
 
             ty::Array(..) => self.ptrauth_transmute_contains_fn_ptr(layout.field(self.cx, 0)),
 
@@ -312,7 +337,11 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 }
 
                 ty::Adt(def, _) if def.repr().transparent() => {
-                    layout = layout.field(self.cx, 0);
+                    let Some((_, field_layout)) = layout.non_1zst_field(self.cx) else {
+                        // Every field is a ZST - early exit.
+                        return None;
+                    };
+                    layout = field_layout;
                 }
 
                 ty::Adt(def, args)
@@ -332,7 +361,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
     ///
     /// The source operand may already reside in memory due to recursive aggregate traversal.
     fn ptrauth_resign_fn_ptr(
-        this: &mut FunctionCx<'a, 'tcx, Bx>,
+        &mut self,
         bx: &mut Bx,
         src: OperandRef<'tcx, Bx::Value>,
         dst: PlaceRef<'tcx, Bx::Value>,
@@ -356,13 +385,29 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         let info = TransmuteInfo { src_ty, dst_ty };
 
         let val = if nullable {
-            this.ptrauth_resign_transmuted_nullable_fn_ptr(bx, val, info)
+            self.ptrauth_resign_transmuted_nullable_fn_ptr(bx, val, info)
         } else {
-            this.ptrauth_resign_transmuted_fn_ptr(bx, val, info)
+            self.ptrauth_resign_transmuted_fn_ptr(bx, val, info)
         };
 
         OperandRef { val: OperandValue::Immediate(val), layout: dst.layout, move_annotation: None }
             .store_with_annotation(bx, dst);
+    }
+
+    fn ptrauth_transmute_unsupported(&self, reason: &str, src_ty: Ty<'tcx>, dst_ty: Ty<'tcx>) {
+        self.cx.tcx().dcx().span_fatal(
+            self.mir.span,
+            format!(
+                "type discrimination for function pointer authentication does not \
+                 yet support transmutes of {reason} ({src_ty:?} -> {dst_ty:?})",
+            ),
+        );
+    }
+
+    /// Returns true if `layout` is a union whose active field cannot be determined
+    /// from its bytes (more than one entry). `repr(transparent)` unions are excluded.
+    fn ptrauth_layout_is_ambiguous_union(&self, layout: TyAndLayout<'tcx>) -> bool {
+        matches!(layout.ty.kind(), ty::Adt(def, _) if def.is_union() && !def.repr().transparent())
     }
 
     /// Applies pointer-authentication type discriminator change during a transmute into a
@@ -398,24 +443,48 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             self.ptrauth_canonicalize_fn_ptr_layout(src.layout),
             self.ptrauth_canonicalize_fn_ptr_layout(dst.layout),
         ) {
-            Self::ptrauth_resign_fn_ptr(
-                self,
-                bx,
-                src,
-                dst,
-                src_fn,
-                dst_fn,
-                src_nullable || dst_nullable,
-            );
+            self.ptrauth_resign_fn_ptr(bx, src, dst, src_fn, dst_fn, src_nullable || dst_nullable);
             return;
+        }
+
+        // FIXME: JKB:
+        // This is assuming:
+        // source field 0 <-> destination field 0
+        // source field 1 <-> destination field 1
+
+        // That happens to be valid for the tuple test:
+        // (fn() -> i32, u64)
+        // (fn(),        u64)
+        // but it isn't generally justified merely by the fact that two types are both tuples/ADTs
+        // and have the same size.
+
+        let src_contains_fn_ptr = self.ptrauth_transmute_contains_fn_ptr(src.layout);
+        let dst_contains_fn_ptr = self.ptrauth_transmute_contains_fn_ptr(dst.layout);
+
+        if (self.ptrauth_layout_is_ambiguous_union(src.layout)
+            || self.ptrauth_layout_is_ambiguous_union(dst.layout))
+            && (src_contains_fn_ptr || dst_contains_fn_ptr)
+        {
+            self.ptrauth_transmute_unsupported(
+                "unions that contain a function pointer",
+                src.layout.ty,
+                dst.layout.ty,
+            );
         }
 
         match (src.layout.ty.kind(), dst.layout.ty.kind()) {
             // Structs and tuples have field projections.
             (ty::Adt(..), ty::Adt(..)) | (ty::Tuple(_), ty::Tuple(_)) => {
-                if self.ptrauth_transmute_contains_fn_ptr(src.layout)
-                    || self.ptrauth_transmute_contains_fn_ptr(dst.layout)
-                {
+                if src_contains_fn_ptr || dst_contains_fn_ptr {
+                    if matches!(src.layout.variants, abi::Variants::Multiple { .. })
+                        || matches!(dst.layout.variants, abi::Variants::Multiple { .. })
+                    {
+                        self.ptrauth_transmute_unsupported(
+                            "multi-variant enums containing function pointers",
+                            src.layout.ty,
+                            dst.layout.ty,
+                        );
+                    }
                     self.ptrauth_transmute_aggregate_fields(bx, src, dst);
                 } else {
                     src.store_with_annotation(bx, dst.val.with_type(src.layout));
@@ -424,7 +493,11 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
 
             // Arrays require index projection.
             (ty::Array(..), ty::Array(..)) => {
-                self.ptrauth_transmute_array_elements(bx, src, dst);
+                if src_contains_fn_ptr || dst_contains_fn_ptr {
+                    self.ptrauth_transmute_array_elements(bx, src, dst);
+                } else {
+                    src.store_with_annotation(bx, dst.val.with_type(src.layout));
+                }
             }
 
             // Everything else is just a normal transmute copy.
