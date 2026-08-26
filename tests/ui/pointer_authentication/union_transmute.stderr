@@ -1,0 +1,11 @@
+error: type discrimination for function pointer authentication does not yet support transmutes of unions that contain a function pointer (U -> S)
+  --> $DIR/union_transmute.rs:18:1
+   |
+LL | / pub unsafe fn transmute_union_struct(u: U) -> S {
+LL | |
+LL | |     transmute(u)
+LL | | }
+   | |_^
+
+error: aborting due to 1 previous error
+

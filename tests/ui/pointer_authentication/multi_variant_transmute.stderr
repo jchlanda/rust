@@ -1,0 +1,11 @@
+error: type discrimination for function pointer authentication does not yet support transmutes of multi-variant enums containing function pointers (E -> E2)
+  --> $DIR/multi_variant_transmute.rs:20:1
+   |
+LL | / pub unsafe fn transmute_e(e: E) -> E2 {
+LL | |
+LL | |     transmute(e)
+LL | | }
+   | |_^
+
+error: aborting due to 1 previous error
+
