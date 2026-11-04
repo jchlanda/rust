@@ -1,6 +1,9 @@
 //@ add-minicore
 //@ check-fail
 //@ normalize-stderr: "randomization_seed: \d+" -> "randomization_seed: $$SEED"
+// The pointer authentication discriminator depends on the target's pointer authentication
+// configuration, not on the calling convention.
+//@ normalize-stderr: "ptrauth_discriminator: (None|Some\(\s+\d+,\s+\))" -> "ptrauth_discriminator: $$PTRAUTH_DISCRIMINATOR"
 //@ ignore-backends: gcc
 
 #![feature(rustc_attrs)]
