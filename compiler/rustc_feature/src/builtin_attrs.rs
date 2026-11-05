@@ -193,6 +193,8 @@ pub static BUILTIN_ATTRIBUTES: &[Symbol] = &[
     sym::register_tool,
     // `#[cfi_encoding = ""]`
     sym::cfi_encoding,
+    // `#[ptrauth_c_discriminator(N)]`
+    sym::ptrauth_c_discriminator,
 
     // `#[coroutine]` attribute to be applied to closures to make them coroutines instead
     sym::coroutine,

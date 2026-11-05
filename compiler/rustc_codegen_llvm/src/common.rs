@@ -235,7 +235,7 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
             }
         };
 
-        let init = const_alloc_to_llvm(self, alloc.inner(), IsStatic::No, IsInitOrFini::No);
+        let init = const_alloc_to_llvm(self, alloc.inner(), IsStatic::No, IsInitOrFini::No, &[]);
         let alloc = alloc.inner();
 
         if need_symbol_name {

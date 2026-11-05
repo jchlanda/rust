@@ -1157,6 +1157,11 @@ pub enum AttributeKind {
     /// Represents `#[profiler_runtime]`
     ProfilerRuntime,
 
+    /// Represents `#[ptrauth_c_discriminator(N)]`
+    PtrauthCDiscriminator {
+        discriminator: u16,
+    },
+
     /// Represents [`#[recursion_limit]`](https://doc.rust-lang.org/reference/attributes/limits.html#the-recursion_limit-attribute)
     RecursionLimit {
         limit: Limit,

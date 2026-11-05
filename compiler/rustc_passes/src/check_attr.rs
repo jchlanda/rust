@@ -290,6 +290,7 @@ impl<'tcx> CheckAttrVisitor<'tcx> {
             AttributeKind::PinV2(..) => (),
             AttributeKind::PreludeImport => (),
             AttributeKind::ProfilerRuntime => (),
+            AttributeKind::PtrauthCDiscriminator { .. } => (),
             AttributeKind::RecursionLimit { .. } => (),
             AttributeKind::ReexportTestHarnessMain(..) => (),
             AttributeKind::RegisterTool { .. } => (),
